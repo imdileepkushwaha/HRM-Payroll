@@ -335,6 +335,13 @@ body.page-panel {
     cursor: pointer;
 }
 
+.admin-sidebar-backdrop[hidden] {
+    display: none !important;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
 .admin-sidebar-toggle,
 .admin-sidebar-close {
     display: none;
@@ -6447,16 +6454,18 @@ table tbody tr:last-child td {
         overflow-x: hidden;
     }
 
-    .admin-sidebar-backdrop {
+    .admin-sidebar-backdrop:not([hidden]) {
         display: block;
         opacity: 0;
         visibility: hidden;
+        pointer-events: none;
         transition: opacity 0.22s ease, visibility 0.22s ease;
     }
 
-    body.admin-sidebar-open .admin-sidebar-backdrop {
+    body.admin-sidebar-open .admin-sidebar-backdrop:not([hidden]) {
         opacity: 1;
         visibility: visible;
+        pointer-events: auto;
     }
 
     .sidebar {
@@ -7382,13 +7391,437 @@ table tbody tr:last-child td {
     }
 }
 
-/* ========== EMPLOYEE PORTAL ========== */
+/* ========== EMPLOYEE PORTAL LOGIN ========== */
+body.page-emp-auth {
+    background: linear-gradient(145deg, #0f172a 0%, #1e1b4b 42%, #312e81 100%);
+}
+
+.emp-login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px 32px;
+}
+
+.emp-login-shell {
+    width: 100%;
+    max-width: 440px;
+}
+
+.emp-login-card {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.35);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.emp-login-hero {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 28px 28px 24px;
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 45%, #0ea5e9 100%);
+    color: #fff;
+}
+
+.emp-login-logo {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    font-size: 1.35rem;
+    font-weight: 800;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(8px);
+}
+
+.emp-login-hero-text {
+    min-width: 0;
+    text-align: left;
+}
+
+.emp-login-eyebrow {
+    margin: 0 0 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.88;
+}
+
+.emp-login-hero-text h1 {
+    margin: 0 0 4px;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.emp-login-hero-text p {
+    margin: 0;
+    font-size: 0.82rem;
+    opacity: 0.9;
+    line-height: 1.4;
+}
+
+.emp-login-body {
+    padding: 24px 28px 20px;
+    text-align: left;
+}
+
+.emp-login-alert {
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+.emp-login-id-group {
+    margin-bottom: 16px;
+}
+
+.emp-login-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 5px;
+    margin-bottom: 16px;
+    background: #f1f5f9;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+}
+
+.emp-login-body .form-group {
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+.emp-login-body .form-group label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.emp-login-input-wrap {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+
+.emp-login-input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: #94a3b8;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.emp-login-body .emp-login-input-wrap input[type="text"],
+.emp-login-body .emp-login-input-wrap input[type="password"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px 12px 48px !important;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: #0f172a;
+    background: #f8fafc;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.emp-login-body .emp-login-input-wrap input[type="text"]:focus,
+.emp-login-body .emp-login-input-wrap input[type="password"]:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.emp-login-body .emp-login-input-wrap input::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+}
+
+.emp-login-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 12px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: #64748b;
+    font-size: 0.86rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.emp-login-tab svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.emp-login-tab.is-active {
+    background: #fff;
+    color: #4f46e5;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.emp-login-panels {
+    position: relative;
+}
+
+.emp-login-panel {
+    display: none;
+}
+
+.emp-login-panel.is-active {
+    display: block;
+}
+
+.emp-login-form {
+    margin: 0;
+}
+
+.emp-login-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 4px;
+    padding: 13px 18px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.emp-login-submit svg {
+    width: 18px;
+    height: 18px;
+}
+
+.emp-login-submit:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+}
+
+.emp-login-submit:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.emp-login-submit-face {
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+}
+
+.emp-login-face-panel {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.emp-login-face-steps {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.emp-login-face-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+}
+
+.emp-login-face-step strong {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 0.65rem;
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.emp-login-face-step.is-done {
+    color: #047857;
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+}
+
+.emp-login-face-step.is-done strong {
+    background: #10b981;
+    color: #fff;
+}
+
+.emp-login-camera {
+    position: relative;
+    max-height: none;
+    aspect-ratio: 4 / 3;
+    border-radius: 16px;
+    border: 2px solid #e2e8f0;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.emp-login-camera-ring {
+    position: absolute;
+    inset: 12%;
+    border: 2px dashed rgba(99, 102, 241, 0.45);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: emp-login-ring-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes emp-login-ring-pulse {
+    0%, 100% { opacity: 0.45; transform: scale(1); }
+    50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+.face-camera-placeholder {
+    flex-direction: column;
+    gap: 10px;
+}
+
+.face-camera-placeholder svg {
+    width: 36px;
+    height: 36px;
+    opacity: 0.7;
+}
+
+.emp-login-face-status {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    font-size: 0.84rem;
+}
+
+.emp-login-face-status.is-error {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.emp-login-face-actions {
+    margin-top: 12px;
+}
+
+.emp-login-face-hint {
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    font-size: 0.78rem;
+    color: #1e40af;
+    line-height: 1.45;
+    text-align: center;
+}
+
+.emp-login-card-footer {
+    padding: 0 28px 24px;
+    text-align: center;
+}
+
+.emp-login-admin-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+    text-decoration: none;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.emp-login-admin-link svg {
+    width: 16px;
+    height: 16px;
+}
+
+.emp-login-admin-link:hover {
+    color: #4f46e5;
+    border-color: #c7d2fe;
+    background: #eef2ff;
+}
+
+.emp-login-site-footer {
+    margin: 16px 0 0;
+    text-align: center;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+/* Legacy emp login classes (enroll page etc.) */
 .page-emp-auth .login-brand-emp {
     background: linear-gradient(135deg, #0ea5e9, #6366f1);
 }
 
 .login-card-emp {
     border-top: 3px solid #6366f1;
+}
+
+@media (max-width: 480px) {
+    .emp-login-hero {
+        padding: 22px 20px 20px;
+    }
+
+    .emp-login-body {
+        padding: 20px 20px 16px;
+    }
+
+    .emp-login-card-footer {
+        padding: 0 20px 20px;
+    }
+
+    .emp-login-tab span {
+        display: none;
+    }
+
+    .emp-login-tab {
+        padding: 12px 10px;
+    }
+
+    .emp-login-tab svg {
+        width: 22px;
+        height: 22px;
+    }
 }
 
 .face-login-divider {
@@ -7616,6 +8049,16 @@ table tbody tr:last-child td {
     inset: 0;
     background: rgba(15, 23, 42, 0.45);
     z-index: 140;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.emp-sidebar-backdrop[hidden] {
+    display: none !important;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .emp-sidebar {
@@ -7665,7 +8108,7 @@ table tbody tr:last-child td {
 }
 
 .emp-sidebar-user {
-    display: flex;
+    display: none;
     align-items: center;
     gap: 10px;
     padding: 14px 18px;
@@ -7709,7 +8152,6 @@ table tbody tr:last-child td {
     padding: 14px 12px 18px;
     display: flex;
     flex-direction: column;
-    min-height: 100%;
 }
 
 .emp-sidebar-menu li {
@@ -7774,17 +8216,38 @@ table tbody tr:last-child td {
     border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.emp-sidebar-footer {
+    flex-shrink: 0;
+    padding: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.emp-sidebar-footer .emp-sidebar-logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 11px 12px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.12);
+    color: #fecaca;
+    font-size: 0.88rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.emp-sidebar-footer .emp-sidebar-logout-btn:hover {
+    background: rgba(239, 68, 68, 0.22);
+    color: #fff;
+}
+
 .emp-sidebar-logout-form {
     margin: 0;
-}
-
-.emp-sidebar-logout-btn {
-    color: rgba(252, 165, 165, 0.92);
-}
-
-.emp-sidebar-logout-btn:hover {
-    background: rgba(239, 68, 68, 0.14);
-    color: #fecaca;
 }
 
 .emp-main {
@@ -7880,6 +8343,40 @@ table tbody tr:last-child td {
     display: block;
     font-size: 0.72rem;
     color: var(--text-muted);
+}
+
+.emp-main-topbar-logout-form {
+    display: none;
+    margin: 0;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.emp-main-topbar-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.emp-main-topbar-logout svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.emp-main-topbar-logout:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
 }
 
 /* Legacy topbar — kept for reference, no longer used in employee portal */
@@ -11196,8 +11693,18 @@ button.emp-quick-card {
 }
 
 @media (max-width: 900px) {
-    .emp-sidebar-backdrop {
+    .emp-sidebar-backdrop:not([hidden]) {
         display: block;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.22s ease, visibility 0.22s ease;
+    }
+
+    body.emp-sidebar-open .emp-sidebar-backdrop:not([hidden]) {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
     }
 
     .emp-sidebar {
@@ -11216,6 +11723,14 @@ button.emp-quick-card {
 
     .emp-sidebar-toggle {
         display: inline-flex;
+    }
+
+    .emp-main-topbar-logout-form {
+        display: block;
+    }
+
+    .emp-main-topbar-user {
+        display: none;
     }
 
     .emp-main-topbar {

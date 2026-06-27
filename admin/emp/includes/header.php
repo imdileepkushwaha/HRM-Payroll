@@ -113,17 +113,18 @@ $emp_page_title = match ($current_page) {
                     </a>
                 </li>
                 <?php endif; ?>
-                <li class="emp-sidebar-logout">
-                    <form method="POST" action="logout.php" class="emp-sidebar-logout-form">
-                        <?php require_once __DIR__ . '/../../includes/csrf_helper.php'; echo csrf_field(); ?>
-                        <button type="submit" class="emp-sidebar-logout-btn">
-                            <svg class="emp-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                            <span>Logout</span>
-                        </button>
-                    </form>
-                </li>
             </ul>
         </nav>
+
+        <div class="emp-sidebar-footer">
+            <form method="POST" action="logout.php" class="emp-sidebar-logout-form">
+                <?php require_once __DIR__ . '/../../includes/csrf_helper.php'; echo csrf_field(); ?>
+                <button type="submit" class="emp-sidebar-logout-btn">
+                    <svg class="emp-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span>Logout</span>
+                </button>
+            </form>
+        </div>
     </aside>
 
     <div class="emp-main">
@@ -142,5 +143,12 @@ $emp_page_title = match ($current_page) {
                     <span><?php echo htmlspecialchars($employee['emp_id']); ?></span>
                 </div>
             </div>
+            <form method="POST" action="logout.php" class="emp-main-topbar-logout-form">
+                <?php require_once __DIR__ . '/../../includes/csrf_helper.php'; echo csrf_field(); ?>
+                <button type="submit" class="emp-main-topbar-logout" aria-label="Logout">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span>Logout</span>
+                </button>
+            </form>
         </header>
         <main class="emp-content">

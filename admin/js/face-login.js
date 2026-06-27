@@ -327,7 +327,7 @@
                 await startCamera();
                 setStatus('Ready. Capture ' + requiredSamples + ' face samples.');
             } else {
-                setStatus('Enter Employee ID, then tap “Sign in with face”.');
+                setStatus('Enter Employee ID above, then verify your face.');
             }
         } catch (err) {
             setStatus('Could not load face models. Check internet and refresh.', true);
@@ -348,12 +348,19 @@
         if (faceCancelBtn) {
             faceCancelBtn.addEventListener('click', function () {
                 stopCamera();
-                if (facePanel) {
-                    facePanel.hidden = true;
-                }
-                setStatus('Enter Employee ID, then tap “Sign in with face”.');
+                setStatus('Enter Employee ID above, then verify your face.');
+                document.dispatchEvent(new CustomEvent('emp-login-tab-change', { detail: { tab: 'password' } }));
             });
         }
+
+        document.addEventListener('emp-login-tab-change', function (event) {
+            var tab = event.detail && event.detail.tab;
+            if (tab === 'face' && facePanel) {
+                startCamera();
+            } else if (tab === 'password') {
+                stopCamera();
+            }
+        });
 
         var toggleFaceBtn = document.getElementById('faceLoginToggleBtn');
         if (toggleFaceBtn && facePanel) {
