@@ -435,7 +435,7 @@ function process_wide_attendance_rows($conn, array $rows, $year, $month, $dry_ru
                 $employee_ids[$emp_id] = true;
                 attendance_import_preview_push($preview_items, $preview_limit, $emp_id, $name, $date, $status, $code);
             } else {
-                $stmt_att->bind_param('ssss', $emp_id, $date, $status, $status);
+                $stmt_att->bind_param('sss', $emp_id, $date, $status);
                 if ($stmt_att->execute()) {
                     $success_count++;
                     $ctx['attendance'][$date] = $status;
@@ -576,7 +576,7 @@ function process_attendance_rows($conn, array $rows, $skip_header = true, $year 
             $stmt_emp->bind_param('sis', $emp_id, $branch_id, $name);
             $stmt_emp->execute();
 
-            $stmt_att->bind_param('ssss', $emp_id, $date, $status, $status);
+            $stmt_att->bind_param('sss', $emp_id, $date, $status);
 
             if ($stmt_att->execute()) {
                 $success_count++;

@@ -1,8 +1,11 @@
 <?php
 require __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/../includes/employee_helper.php';
+require_once __DIR__ . '/../includes/face_biometric_helper.php';
 
 $emp_id = $employee['emp_id'];
+$face_login_enabled = employee_face_login_enabled($conn);
+$has_face_enrolled = employee_has_face_enrolled($conn, $emp_id);
 $profile_requests = get_employee_profile_requests($conn, $emp_id, 8);
 $has_pending_profile = employee_has_pending_profile_request($conn, $emp_id);
 $profile_form_disabled = $has_pending_profile;
@@ -100,6 +103,32 @@ $joined_display = format_joined_date_display($employee['joined_date'] ?? null);
         </div>
 
         <aside class="emp-request-panel emp-request-panel-profile">
+            <div class="emp-face-setup-card emp-doc-link-card">
+                <div class="emp-face-setup-head">
+                    <span class="emp-face-setup-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </span>
+                    <div>
+                        <h3>My documents</h3>
+                        <p>Upload Aadhar, PAN, marksheet and other documents for admin verification.</p>
+                    </div>
+                </div>
+                <a href="documents.php" class="btn btn-block">Manage documents</a>
+            </div>
+            <?php if ($face_login_enabled): ?>
+            <div class="emp-face-setup-card">
+                <div class="emp-face-setup-head">
+                    <span class="emp-face-setup-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M7 20v-1a5 5 0 0 1 10 0v1"/></svg>
+                    </span>
+                    <div>
+                        <h3>Face login</h3>
+                        <p><?php echo $has_face_enrolled ? 'Your face is registered for quick sign-in.' : 'Set up face login for faster access next time.'; ?></p>
+                    </div>
+                </div>
+                <a href="face_enroll.php" class="btn btn-block"><?php echo $has_face_enrolled ? 'Manage face login' : 'Set up face login'; ?></a>
+            </div>
+            <?php endif; ?>
             <div class="emp-request-panel-header">
                 <span class="emp-request-panel-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>

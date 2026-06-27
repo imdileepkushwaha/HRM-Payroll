@@ -31,6 +31,119 @@ function get_branches($conn)
     return $cache;
 }
 
+function get_all_branches_for_admin($conn): array
+{
+    $rows = [];
+    $r = $conn->query('SELECT id, code, name, is_active FROM branches ORDER BY is_active DESC, id ASC');
+    if ($r) {
+        while ($row = $r->fetch_assoc()) {
+            $rows[] = $row;
+        }
+    }
+    return $rows;
+}
+
+function count_branch_employees($conn, int $branch_id): int
+{
+    $stmt = $conn->prepare('SELECT COUNT(*) AS c FROM employees WHERE branch_id = ?');
+    $stmt->bind_param('i', $branch_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+
+    return (int) ($row['c'] ?? 0);
+}
+
+function count_branch_admin_users($conn, int $branch_id): int
+{
+    $stmt = $conn->prepare('SELECT COUNT(*) AS c FROM admin_users WHERE branch_id = ?');
+    $stmt->bind_param('i', $branch_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+
+    return (int) ($row['c'] ?? 0);
+}
+
+function count_active_branches($conn): int
+{
+    $r = $conn->query('SELECT COUNT(*) AS c FROM branches WHERE is_active = 1');
+    $row = $r ? $r->fetch_assoc() : null;
+
+    return (int) ($row['c'] ?? 0);
+}
+
+function add_branch($conn, string $code, string $name): array
+{
+    $code = strtoupper(trim($code));
+    $name = trim($name);
+    if ($code === '' || !preg_match('/^[A-Z0-9_-]{2,20}$/', $code)) {
+        return ['ok' => false, 'message' => 'Branch code must be 2–20 letters, numbers, dash or underscore.'];
+    }
+    if ($name === '' || strlen($name) > 100) {
+        return ['ok' => false, 'message' => 'Branch name is required (max 100 characters).'];
+    }
+
+    $check = $conn->prepare('SELECT id FROM branches WHERE code = ?');
+    $check->bind_param('s', $code);
+    $check->execute();
+    if ($check->get_result()->fetch_assoc()) {
+        return ['ok' => false, 'message' => 'Branch code already exists.'];
+    }
+
+    $stmt = $conn->prepare('INSERT INTO branches (code, name, is_active) VALUES (?, ?, 1)');
+    $stmt->bind_param('ss', $code, $name);
+    if (!$stmt->execute()) {
+        return ['ok' => false, 'message' => 'Could not add branch.'];
+    }
+
+    return ['ok' => true, 'message' => 'Branch added.'];
+}
+
+function deactivate_branch($conn, int $branch_id): array
+{
+    if ($branch_id < 1) {
+        return ['ok' => false, 'message' => 'Invalid branch.'];
+    }
+
+    $branch = $conn->prepare('SELECT id, code, name, is_active FROM branches WHERE id = ?');
+    $branch->bind_param('i', $branch_id);
+    $branch->execute();
+    $row = $branch->get_result()->fetch_assoc();
+    if (!$row) {
+        return ['ok' => false, 'message' => 'Branch not found.'];
+    }
+    if ((int) ($row['is_active'] ?? 0) !== 1) {
+        return ['ok' => false, 'message' => 'Branch is already inactive.'];
+    }
+
+    if (count_active_branches($conn) <= 1) {
+        return ['ok' => false, 'message' => 'Cannot remove the last active branch.'];
+    }
+
+    $emp_count = count_branch_employees($conn, $branch_id);
+    if ($emp_count > 0) {
+        return [
+            'ok' => false,
+            'message' => 'Cannot remove branch with ' . $emp_count . ' employee(s). Reassign or move them first.',
+        ];
+    }
+
+    $admin_count = count_branch_admin_users($conn, $branch_id);
+    if ($admin_count > 0) {
+        return [
+            'ok' => false,
+            'message' => 'Cannot remove branch with ' . $admin_count . ' admin user(s). Change their branch access first.',
+        ];
+    }
+
+    $stmt = $conn->prepare('UPDATE branches SET is_active = 0 WHERE id = ?');
+    $stmt->bind_param('i', $branch_id);
+    if (!$stmt->execute()) {
+        return ['ok' => false, 'message' => 'Could not deactivate branch.'];
+    }
+
+    return ['ok' => true, 'message' => 'Branch "' . ($row['name'] ?? '') . '" removed.'];
+}
+
 function get_branch_by_id($conn, $branch_id)
 {
     foreach (get_branches($conn) as $branch) {

@@ -44,3 +44,33 @@ function require_csrf_or_redirect($redirect = 'dashboard.php')
         exit;
     }
 }
+
+function read_json_request_body(): array
+{
+    $raw = file_get_contents('php://input');
+    if ($raw === false || trim($raw) === '') {
+        return [];
+    }
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function verify_csrf_from_request(array $payload = []): bool
+{
+    $sent = (string) ($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $payload['csrf_token'] ?? '');
+    $expected = (string) ($_SESSION['csrf_token'] ?? '');
+    if ($sent === '' || $expected === '' || !hash_equals($expected, $sent)) {
+        return false;
+    }
+    return true;
+}
+
+function require_csrf_json_or_fail(array $payload = []): void
+{
+    if (!verify_csrf_from_request($payload)) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'message' => 'Security check failed. Refresh the page and try again.']);
+        exit;
+    }
+}

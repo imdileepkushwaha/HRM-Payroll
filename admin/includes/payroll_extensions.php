@@ -91,11 +91,101 @@ function is_payroll_period_locked($conn, $year, $month, $branch_id = null)
     return ($p['status'] ?? 'open') === 'locked';
 }
 
+function can_release_salary_slips_for_period($conn, $year, $month, $branch_id = null)
+{
+    $p = get_payroll_period($conn, $year, $month, $branch_id);
+    $status = $p['status'] ?? 'open';
+
+    return in_array($status, ['approved', 'locked'], true);
+}
+
+/** @deprecated Use can_release_salary_slips_for_period() */
 function can_send_slips_for_period($conn, $year, $month)
 {
-    $p = get_payroll_period($conn, $year, $month);
-    $status = $p['status'] ?? 'open';
-    return in_array($status, ['approved', 'locked'], true);
+    return can_release_salary_slips_for_period($conn, $year, $month);
+}
+
+function can_view_salary_slip_for_period($conn, $year, $month, $settings, $branch_id = null)
+{
+    if (!empty($settings['require_payroll_approval']) && (int) $settings['require_payroll_approval'] === 1) {
+        if ($branch_id === null) {
+            $branch_id = payroll_context_branch_id();
+        }
+
+        return can_release_salary_slips_for_period($conn, $year, $month, $branch_id);
+    }
+
+    return true;
+}
+
+function employee_salary_slip_is_available($conn, $employee, $year, $month, $settings)
+{
+    if ((float) ($employee['base_salary'] ?? 0) <= 0) {
+        return false;
+    }
+
+    $stats = get_attendance_stats_extended($conn, $employee['emp_id'], $year, $month, $settings);
+    if ($stats['total_records'] === 0) {
+        return false;
+    }
+
+    $branch_id = (int) ($employee['branch_id'] ?? 1);
+
+    return can_view_salary_slip_for_period($conn, $year, $month, $settings, $branch_id);
+}
+
+/**
+ * Salary slip periods visible in the employee portal (no email send required).
+ *
+ * @return array<int, array{period_month:int, period_year:int, net_salary:float}>
+ */
+function get_employee_available_salary_slips($conn, $employee, $settings, $limit = 36)
+{
+    $limit = max(1, min(48, (int) $limit));
+    $emp_id = $employee['emp_id'];
+    $stmt = $conn->prepare('
+        SELECT YEAR(attendance_date) AS period_year, MONTH(attendance_date) AS period_month
+        FROM attendance
+        WHERE emp_id = ?
+        GROUP BY YEAR(attendance_date), MONTH(attendance_date)
+        ORDER BY period_year DESC, period_month DESC
+    ');
+    $stmt->bind_param('s', $emp_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $rows = [];
+    while ($period = $result->fetch_assoc()) {
+        $year = (int) $period['period_year'];
+        $month = (int) $period['period_month'];
+        if (!employee_salary_slip_is_available($conn, $employee, $year, $month, $settings)) {
+            continue;
+        }
+        $salary = calculate_employee_salary_full($conn, $employee, $year, $month, $settings);
+        $rows[] = [
+            'period_month' => $month,
+            'period_year' => $year,
+            'net_salary' => (float) $salary['net_salary'],
+        ];
+        if (count($rows) >= $limit) {
+            break;
+        }
+    }
+
+    return $rows;
+}
+
+function get_employee_available_salary_slips_by_id($conn, $emp_id, $settings, $limit = 36)
+{
+    $stmt = $conn->prepare('SELECT * FROM employees WHERE emp_id = ?');
+    $stmt->bind_param('s', $emp_id);
+    $stmt->execute();
+    $employee = $stmt->get_result()->fetch_assoc();
+    if (!$employee) {
+        return [];
+    }
+
+    return get_employee_available_salary_slips($conn, $employee, $settings, $limit);
 }
 
 function payroll_period_status_label($status)
@@ -428,6 +518,17 @@ function get_attendance_stats_extended($conn, $emp_id, $year, $month, $settings 
         2
     );
 
+    $late_punch_count = 0;
+    $late_penalty_days = 0.0;
+    if (($settings['punch_enabled'] ?? '1') === '1') {
+        require_once __DIR__ . '/punch_helper.php';
+        $late_punch_count = count_employee_late_punches_for_period($conn, $emp_id, $year, $month);
+        $late_penalty_days = calculate_late_punch_penalty_days($late_punch_count, $settings);
+        if ($late_penalty_days > 0) {
+            $paid_days = max(0, round($paid_days - $late_penalty_days, 2));
+        }
+    }
+
     return [
         'present_days' => $present_days,
         'absent_days' => $absent_days,
@@ -440,6 +541,8 @@ function get_attendance_stats_extended($conn, $emp_id, $year, $month, $settings 
         'total_records' => $present_days + $absent_days + $half_days + $leave_days + $weekoff_days + $other_days,
         'overtime_hours' => round($overtime_hours, 2),
         'paid_days' => $paid_days,
+        'late_punch_count' => $late_punch_count,
+        'late_penalty_days' => $late_penalty_days,
         'roster_weekoff_dates' => $roster_info['roster_dates'] ?? [],
     ];
 }
@@ -544,47 +647,22 @@ function calculate_employee_salary_full($conn, $employee, $year, $month, $settin
     return $salary;
 }
 
-/* ---------- Slip send helpers ---------- */
+/* ---------- Employee portal slip helpers ---------- */
 
 function employee_slip_already_sent($conn, $emp_id, $year, $month)
 {
-    $stmt = $conn->prepare("
-        SELECT id FROM salary_slip_logs
-        WHERE emp_id = ? AND period_year = ? AND period_month = ? AND status = 'sent'
-        ORDER BY sent_at DESC LIMIT 1
-    ");
-    $stmt->bind_param('sii', $emp_id, $year, $month);
+    require_once __DIR__ . '/settings_helper.php';
+    $stmt = $conn->prepare('SELECT * FROM employees WHERE emp_id = ?');
+    $stmt->bind_param('s', $emp_id);
     $stmt->execute();
-    return (bool) $stmt->get_result()->fetch_assoc();
-}
+    $employee = $stmt->get_result()->fetch_assoc();
+    if (!$employee) {
+        return false;
+    }
 
-function send_single_salary_slip($conn, $employee, $year, $month, $settings, $mailer)
-{
-    require_once __DIR__ . '/pdf_slip.php';
-    $period = get_period_label($year, $month);
-    $salary = calculate_employee_salary_full($conn, $employee, $year, $month, $settings);
-    $subject = 'Salary Slip - ' . $period . ' - ' . $employee['name'];
-    $email_html = render_salary_slip_email_html($employee, $salary, $settings, $year, $month);
-    $pdf_binary = generate_salary_slip_pdf($conn, $employee, $salary, $settings, $year, $month);
-    $pdf_filename = salary_slip_pdf_filename($employee, $year, $month);
+    $settings = get_all_settings($conn);
 
-    $ok = $mailer->send($employee['email'], $employee['name'], $subject, $email_html, $pdf_binary, $pdf_filename);
-    $status = $ok ? 'sent' : 'failed';
-    $log = $conn->prepare("
-        INSERT INTO salary_slip_logs (emp_id, period_month, period_year, net_salary, sent_to, status, sent_at)
-        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON DUPLICATE KEY UPDATE
-            net_salary = VALUES(net_salary),
-            sent_to = VALUES(sent_to),
-            status = VALUES(status),
-            sent_at = CURRENT_TIMESTAMP
-    ");
-    $net = $salary['net_salary'];
-    $email = $employee['email'];
-    $log->bind_param('siidss', $employee['emp_id'], $month, $year, $net, $email, $status);
-    $log->execute();
-
-    return ['success' => $ok, 'salary' => $salary, 'error' => $ok ? null : $mailer->getLastError()];
+    return employee_salary_slip_is_available($conn, $employee, $year, $month, $settings);
 }
 
 /* ---------- Leave Management ---------- */

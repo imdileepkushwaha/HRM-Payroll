@@ -58,7 +58,10 @@ function payroll_translate_sql($sql)
         return payroll_convert_upsert_to_merge($sql);
     }
 
-    if (preg_match('/\s+LIMIT\s+(\d+)\s*$/i', $sql, $m)) {
+    if (preg_match('/\s+LIMIT\s+(\d+)\s+OFFSET\s+(\d+)\s*$/i', $sql, $m)) {
+        $sql = preg_replace('/\s+LIMIT\s+\d+\s+OFFSET\s+\d+\s*$/i', '', $sql);
+        $sql .= ' OFFSET ' . (int) $m[2] . ' ROWS FETCH NEXT ' . (int) $m[1] . ' ROWS ONLY';
+    } elseif (preg_match('/\s+LIMIT\s+(\d+)\s*$/i', $sql, $m)) {
         $sql = preg_replace('/\s+LIMIT\s+\d+\s*$/i', '', $sql);
         $sql .= ' OFFSET 0 ROWS FETCH NEXT ' . (int) $m[1] . ' ROWS ONLY';
     }
@@ -98,7 +101,7 @@ function payroll_convert_insert_ignore_to_merge($sql)
 
     return 'MERGE ' . $table . ' AS t USING (SELECT ' . implode(', ', $source_cols) . ') AS s ON '
         . implode(' AND ', $on)
-        . ' WHEN NOT MATCHED THEN INSERT (' . $insert_cols . ') VALUES (' . $insert_vals . ')';
+        . ' WHEN NOT MATCHED THEN INSERT (' . $insert_cols . ') VALUES (' . $insert_vals . ');';
 }
 
 function payroll_convert_upsert_to_merge($sql)
@@ -143,6 +146,10 @@ function payroll_convert_upsert_to_merge($sql)
         }
         if (preg_match('/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/i', $part, $um)) {
             $rhs = trim($um[2]);
+            if ($rhs === '?') {
+                $set_parts[] = 't.' . $um[1] . ' = s.' . $um[1];
+                continue;
+            }
             if (strcasecmp($rhs, 'NULL') === 0) {
                 $set_parts[] = 't.' . $um[1] . ' = NULL';
             } elseif (preg_match('/^[\'"].*[\'"]$/', $rhs) || preg_match('/^[0-9.]+$/', $rhs) || strcasecmp($rhs, 'CURRENT_TIMESTAMP') === 0 || strcasecmp($rhs, 'GETDATE()') === 0) {
@@ -161,7 +168,7 @@ function payroll_convert_upsert_to_merge($sql)
     return 'MERGE ' . $table . ' AS t USING (SELECT ' . implode(', ', $source_cols) . ') AS s ON '
         . implode(' AND ', $on)
         . ' WHEN MATCHED THEN UPDATE SET ' . implode(', ', $set_parts)
-        . ' WHEN NOT MATCHED THEN INSERT (' . $insert_cols . ') VALUES (' . $insert_vals . ')';
+        . ' WHEN NOT MATCHED THEN INSERT (' . $insert_cols . ') VALUES (' . $insert_vals . ');';
 }
 
 function payroll_parse_sql_list($list)

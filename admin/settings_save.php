@@ -3,7 +3,7 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require_once 'includes/csrf_helper.php';
 require 'config.php';
-require 'includes/settings_helper.php';
+require_once 'includes/settings_helper.php';
 require 'includes/signature_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -136,6 +136,110 @@ if ($section === 'leave') {
     exit;
 }
 
+if ($section === 'punch') {
+    set_setting($conn, 'punch_enabled', !empty($_POST['punch_enabled']) ? '1' : '0');
+    set_setting($conn, 'geo_attendance_enabled', !empty($_POST['geo_attendance_enabled']) ? '1' : '0');
+    set_setting($conn, 'employee_face_login_enabled', !empty($_POST['employee_face_login_enabled']) ? '1' : '0');
+    set_setting($conn, 'office_latitude', trim($_POST['office_latitude'] ?? ''));
+    set_setting($conn, 'office_longitude', trim($_POST['office_longitude'] ?? ''));
+    set_setting($conn, 'geo_fence_radius_meters', trim($_POST['geo_fence_radius_meters'] ?? '200'));
+    $office_start = trim($_POST['office_start_time'] ?? '09:30');
+    $office_end = trim($_POST['office_end_time'] ?? '18:30');
+    if (!preg_match('/^\d{2}:\d{2}$/', $office_start)) {
+        $office_start = '09:30';
+    }
+    if (!preg_match('/^\d{2}:\d{2}$/', $office_end)) {
+        $office_end = '18:30';
+    }
+    if (strtotime($office_end) <= strtotime($office_start)) {
+        $_SESSION['flash_message'] = 'Office end time must be after start time.';
+        $_SESSION['flash_success'] = false;
+        header('Location: settings.php?tab=punch');
+        exit;
+    }
+    set_setting($conn, 'office_start_time', $office_start);
+    set_setting($conn, 'office_end_time', $office_end);
+    set_setting($conn, 'late_grace_minutes', (string) max(0, min(120, (int) ($_POST['late_grace_minutes'] ?? 10))));
+    set_setting($conn, 'half_day_on_late_in', !empty($_POST['half_day_on_late_in']) ? '1' : '0');
+    set_setting($conn, 'half_day_on_early_out', !empty($_POST['half_day_on_early_out']) ? '1' : '0');
+    $missing_out = strtolower(trim($_POST['missing_punch_out_status'] ?? 'half_day'));
+    set_setting($conn, 'missing_punch_out_status', $missing_out === 'absent' ? 'absent' : 'half_day');
+    set_setting($conn, 'auto_absent_no_punch', !empty($_POST['auto_absent_no_punch']) ? '1' : '0');
+    set_setting($conn, 'late_count_for_half_day', (string) max(0, min(31, (int) ($_POST['late_count_for_half_day'] ?? 3))));
+    set_setting($conn, 'punch_sync_overtime', !empty($_POST['punch_sync_overtime']) ? '1' : '0');
+    set_setting($conn, 'block_punch_on_holiday_weekoff', !empty($_POST['block_punch_on_holiday_weekoff']) ? '1' : '0');
+
+    $branch_lats = $_POST['branch_lat'] ?? [];
+    $branch_lngs = $_POST['branch_lng'] ?? [];
+    $branch_radii = $_POST['branch_radius'] ?? [];
+    $branch_starts = $_POST['branch_start'] ?? [];
+    $branch_ends = $_POST['branch_end'] ?? [];
+    $branch_graces = $_POST['branch_grace'] ?? [];
+
+    if (is_array($branch_lats)) {
+        foreach ($branch_lats as $branch_id => $lat) {
+            $branch_id = (int) $branch_id;
+            if ($branch_id < 1) {
+                continue;
+            }
+            $lng = trim($branch_lngs[$branch_id] ?? '');
+            $radius = trim($branch_radii[$branch_id] ?? '');
+            $lat = trim((string) $lat);
+            $lat_val = $lat === '' ? null : $lat;
+            $lng_val = $lng === '' ? null : $lng;
+            $radius_val = $radius === '' ? null : (string) (int) $radius;
+            $start_val = trim($branch_starts[$branch_id] ?? '');
+            $end_val = trim($branch_ends[$branch_id] ?? '');
+            $grace_val = trim($branch_graces[$branch_id] ?? '');
+            $start_param = ($start_val !== '' && preg_match('/^\d{2}:\d{2}$/', $start_val)) ? $start_val : null;
+            $end_param = ($end_val !== '' && preg_match('/^\d{2}:\d{2}$/', $end_val)) ? $end_val : null;
+            $grace_param = ($grace_val !== '' && is_numeric($grace_val)) ? (int) $grace_val : null;
+
+            $stmt = $conn->prepare('UPDATE branches SET office_latitude = ?, office_longitude = ?, geo_fence_radius_meters = ?, office_start_time = ?, office_end_time = ?, late_grace_minutes = ? WHERE id = ?');
+            $stmt->bind_param('ssssssi', $lat_val, $lng_val, $radius_val, $start_param, $end_param, $grace_param, $branch_id);
+            $stmt->execute();
+        }
+    }
+
+    $_SESSION['flash_message'] = 'Punch and geo settings saved.';
+    $_SESSION['flash_success'] = true;
+    header('Location: settings.php?tab=punch');
+    exit;
+}
+
+if ($section === 'branch_add') {
+    require_once 'includes/branch_helper.php';
+    if (!is_super_admin()) {
+        $_SESSION['flash_message'] = 'Only Head Office can manage branches.';
+        $_SESSION['flash_success'] = false;
+        header('Location: settings.php?tab=branches');
+        exit;
+    }
+
+    $result = add_branch($conn, (string) ($_POST['branch_code'] ?? ''), (string) ($_POST['branch_name'] ?? ''));
+    $_SESSION['flash_message'] = $result['message'];
+    $_SESSION['flash_success'] = $result['ok'];
+    header('Location: settings.php?tab=branches');
+    exit;
+}
+
+if ($section === 'branch_delete') {
+    require_once 'includes/branch_helper.php';
+    if (!is_super_admin()) {
+        $_SESSION['flash_message'] = 'Only Head Office can manage branches.';
+        $_SESSION['flash_success'] = false;
+        header('Location: settings.php?tab=branches');
+        exit;
+    }
+
+    $branch_id = (int) ($_POST['branch_id'] ?? 0);
+    $result = deactivate_branch($conn, $branch_id);
+    $_SESSION['flash_message'] = $result['message'];
+    $_SESSION['flash_success'] = $result['ok'];
+    header('Location: settings.php?tab=branches');
+    exit;
+}
+
 if ($section === 'leave_type_add' || $section === 'leave_type_save') {
     require_once 'includes/payroll_extensions.php';
     $code = strtoupper(trim($_POST['code'] ?? ''));
@@ -149,7 +253,7 @@ if ($section === 'leave_type_add' || $section === 'leave_type_save') {
     exit;
 }
 
-if ($section === 'admin_add') {
+if ($section === 'admins' || $section === 'admin_add') {
     if (!is_super_admin()) {
         $_SESSION['flash_message'] = 'Only Head Office can manage administrator accounts.';
         $_SESSION['flash_success'] = false;
@@ -199,9 +303,13 @@ if ($section === 'admin_add') {
         } elseif ($del_user !== '') {
             $stmt = $conn->prepare('DELETE FROM admin_users WHERE username = ?');
             $stmt->bind_param('s', $del_user);
-            $stmt->execute();
-            $_SESSION['flash_message'] = 'Admin user removed.';
-            $_SESSION['flash_success'] = true;
+            if ($stmt->execute() && $stmt->affected_rows > 0) {
+                $_SESSION['flash_message'] = 'Administrator "' . $del_user . '" removed.';
+                $_SESSION['flash_success'] = true;
+            } else {
+                $_SESSION['flash_message'] = 'Could not remove administrator. Try again.';
+                $_SESSION['flash_success'] = false;
+            }
         }
         header('Location: settings.php?tab=admins');
         exit;

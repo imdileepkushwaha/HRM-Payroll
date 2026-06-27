@@ -2,6 +2,7 @@
 require __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/../includes/settings_helper.php';
 require_once __DIR__ . '/../includes/salary_helper.php';
+require_once __DIR__ . '/../includes/payroll_extensions.php';
 require_once __DIR__ . '/includes/period.php';
 
 $settings = get_all_settings($conn);
@@ -36,7 +37,7 @@ $portal_company = trim($settings['company_name'] ?? '') ?: 'Payroll Company';
 $hour = (int) date('G');
 $greeting = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
 $today_label = date('l, j M Y');
-$sent_slip_count = count(get_employee_sent_slip_logs($conn, $emp_id, 36));
+$sent_slip_count = count(get_employee_available_salary_slips($conn, $employee, $settings, 36));
 ?>
 <div class="emp-page emp-page-dashboard">
     <?php require __DIR__ . '/includes/flash.php'; ?>
@@ -90,6 +91,8 @@ $sent_slip_count = count(get_employee_sent_slip_logs($conn, $emp_id, 36));
             </div>
         </div>
     </header>
+
+    <?php require __DIR__ . '/includes/punch_card.php'; ?>
 
     <div class="emp-dash-stats">
         <div class="emp-dash-stat emp-dash-stat-paid">
@@ -150,56 +153,91 @@ $sent_slip_count = count(get_employee_sent_slip_logs($conn, $emp_id, 36));
 
     <div class="emp-quick-cards">
         <a href="attendance.php?<?php echo $period_query; ?>" class="emp-quick-card emp-quick-card-att">
-            <span class="emp-quick-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
-            </span>
-            <div>
+            <span class="emp-quick-card-accent" aria-hidden="true"></span>
+            <div class="emp-quick-card-top">
+                <span class="emp-quick-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+                </span>
+                <span class="emp-quick-card-go" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                </span>
+            </div>
+            <div class="emp-quick-card-body">
                 <h2>My attendance</h2>
                 <p>Calendar, paid days summary and manual attendance requests for <?php echo htmlspecialchars($period_label); ?>.</p>
-                <span class="emp-quick-card-cta">Open attendance →</span>
             </div>
+            <span class="emp-quick-card-cta">Open attendance</span>
         </a>
         <a href="leave.php?<?php echo $period_query; ?>" class="emp-quick-card emp-quick-card-leave">
-            <span class="emp-quick-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
-            </span>
-            <div>
+            <span class="emp-quick-card-accent" aria-hidden="true"></span>
+            <div class="emp-quick-card-top">
+                <span class="emp-quick-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                </span>
+                <span class="emp-quick-card-go" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                </span>
+            </div>
+            <div class="emp-quick-card-body">
                 <h2>Apply for leave</h2>
                 <p>Submit CL, SL or LOP leave for admin approval. Approved leave shows on your calendar.</p>
-                <span class="emp-quick-card-cta">Apply leave →</span>
             </div>
+            <span class="emp-quick-card-cta">Apply leave</span>
         </a>
         <a href="salary_slips.php" class="emp-quick-card emp-quick-card-slip">
-            <span class="emp-quick-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            </span>
-            <div>
+            <span class="emp-quick-card-accent" aria-hidden="true"></span>
+            <div class="emp-quick-card-top">
+                <span class="emp-quick-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </span>
+                <div class="emp-quick-card-top-end">
+                    <?php if ($sent_slip_count > 0): ?>
+                        <span class="emp-quick-card-badge"><?php echo (int) $sent_slip_count; ?> ready</span>
+                    <?php endif; ?>
+                    <span class="emp-quick-card-go" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                    </span>
+                </div>
+            </div>
+            <div class="emp-quick-card-body">
                 <h2>Salary slips</h2>
                 <p><?php echo $sent_slip_count > 0
-                    ? $sent_slip_count . ' sent slip' . ($sent_slip_count === 1 ? '' : 's') . ' available — view or download PDF.'
-                    : 'View salary slips after admin sends them from payroll.'; ?></p>
-                <span class="emp-quick-card-cta">Open salary slips →</span>
+                    ? $sent_slip_count . ' salary slip' . ($sent_slip_count === 1 ? '' : 's') . ' available — view or download PDF.'
+                    : 'View salary slips in your portal after payroll is approved.'; ?></p>
             </div>
+            <span class="emp-quick-card-cta">Open salary slips</span>
         </a>
         <a href="details.php" class="emp-quick-card emp-quick-card-profile">
-            <span class="emp-quick-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </span>
-            <div>
+            <span class="emp-quick-card-accent" aria-hidden="true"></span>
+            <div class="emp-quick-card-top">
+                <span class="emp-quick-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                <span class="emp-quick-card-go" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                </span>
+            </div>
+            <div class="emp-quick-card-body">
                 <h2>My details</h2>
                 <p>View profile, bank info and request contact or bank detail updates.</p>
-                <span class="emp-quick-card-cta">Open my details →</span>
             </div>
+            <span class="emp-quick-card-cta">Open my details</span>
         </a>
         <button type="button" class="emp-quick-card emp-quick-card-security" id="openPasswordModalBtn" aria-haspopup="dialog">
-            <span class="emp-quick-card-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            </span>
-            <div>
+            <span class="emp-quick-card-accent" aria-hidden="true"></span>
+            <div class="emp-quick-card-top">
+                <span class="emp-quick-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <span class="emp-quick-card-go" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                </span>
+            </div>
+            <div class="emp-quick-card-body">
                 <h2>Change password</h2>
                 <p>Update your employee portal login password securely.</p>
-                <span class="emp-quick-card-cta">Change password →</span>
             </div>
+            <span class="emp-quick-card-cta">Change password</span>
         </button>
     </div>
 </div>

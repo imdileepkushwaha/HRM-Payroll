@@ -1,10 +1,13 @@
 <?php
 require 'includes/header.php';
 require 'config.php';
-require 'includes/settings_helper.php';
+require_once 'includes/settings_helper.php';
 require_once 'includes/salary_helper.php';
+require_once 'includes/payroll_extensions.php';
 require 'includes/employee_helper.php';
 require_once 'includes/attendance_helper.php';
+require_once 'includes/punch_helper.php';
+require_once 'includes/employee_document_helper.php';
 
 $emp_id = trim($_GET['emp_id'] ?? '');
 if ($emp_id === '') {
@@ -19,23 +22,30 @@ $year = (int) ($_GET['year'] ?? date('Y'));
 $month = (int) ($_GET['month'] ?? date('n'));
 $period_label = get_period_label($year, $month);
 
+$holidays_map = get_holidays_for_month($conn, $year, $month);
+$roster_weekoff_dates = get_employee_weekoff_dates($conn, $emp_id, $year, $month);
+$period_locked = is_payroll_period_locked($conn, $year, $month);
+$slip_in_portal = employee_salary_slip_is_available($conn, $employee, $year, $month, $settings);
+
+sync_approved_leave_attendance_for_period($conn, $emp_id, $year, $month);
+
+sync_employee_punch_attendance_for_period($conn, $emp_id, $year, $month, $settings, $employee);
+
 $stats = get_attendance_stats_extended($conn, $emp_id, $year, $month, $settings);
 $salary = calculate_employee_salary_full($conn, $employee, $year, $month, $settings);
 $salary_breakdown = $salary['breakdown'];
-$recent_sent_slips = get_employee_recent_sent_slip_logs($conn, $emp_id, 6);
+$recent_available_slips = get_employee_available_salary_slips($conn, $employee, $settings, 6);
+$employee_documents = get_employee_documents($conn, $emp_id, true);
+$pending_doc_requests = array_values(array_filter(
+    get_employee_document_requests($conn, $emp_id, 20),
+    static fn($row) => ($row['request_status'] ?? '') === 'pending'
+));
 $payroll_profile = get_employee_payroll_profile($conn, $emp_id);
 $payroll_adjustments = get_payroll_adjustments_for_period($conn, $emp_id, $year, $month);
 $adj_bonus_total = (float) ($salary['bonus_total'] ?? 0);
 $adj_incentive_total = (float) ($salary['incentive_total'] ?? 0);
 $adj_deduction_total = (float) ($salary['extra_deductions'] ?? 0);
 $adj_net_impact = round($adj_bonus_total + $adj_incentive_total - $adj_deduction_total, 2);
-$holidays_map = get_holidays_for_month($conn, $year, $month);
-$roster_weekoff_dates = get_employee_weekoff_dates($conn, $emp_id, $year, $month);
-$period_locked = is_payroll_period_locked($conn, $year, $month);
-$can_send_period = can_send_slips_for_period($conn, $year, $month);
-$already_sent_slip = employee_slip_already_sent($conn, $emp_id, $year, $month);
-
-sync_approved_leave_attendance_for_period($conn, $emp_id, $year, $month);
 
 $att_stmt = $conn->prepare("
     SELECT * FROM attendance
@@ -53,8 +63,9 @@ while ($row = $att_result->fetch_assoc()) {
     $attendance_by_date[$row['attendance_date']] = $row['status'];
     $attendance_detail[$row['attendance_date']] = $row;
 }
+$punch_half_day_dates = get_employee_punch_half_day_dates_for_period($conn, $emp_id, $year, $month, $settings, $employee);
 $attendance_count = count($attendance_by_date);
-$attendance_codes = count_calendar_display_codes($year, $month, $attendance_by_date, $roster_weekoff_dates, $holidays_map);
+$attendance_codes = count_calendar_display_codes($year, $month, $attendance_by_date, $roster_weekoff_dates, $holidays_map, $punch_half_day_dates);
 $is_current_month = ((int) date('n') === $month && (int) date('Y') === $year);
 $today_day = $is_current_month ? (int) date('j') : 0;
 [$prev_month, $prev_year] = get_adjacent_period($month, $year, -1);
@@ -106,15 +117,6 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                         Preview PDF
                     </a>
-                    <?php if ($has_email && $can_send_period && !$period_locked): ?>
-                    <form method="POST" action="resend_slip.php" class="page-header-inline-form" onsubmit="return confirm('Resend salary slip email to <?php echo htmlspecialchars($employee['email'], ENT_QUOTES); ?>?');">
-                        <?php echo csrf_field(); ?>
-                        <input type="hidden" name="emp_id" value="<?php echo htmlspecialchars($emp_id); ?>">
-                        <input type="hidden" name="month" value="<?php echo $month; ?>">
-                        <input type="hidden" name="year" value="<?php echo $year; ?>">
-                        <button type="submit" class="btn btn-action-back"><?php echo $already_sent_slip ? 'Resend slip' : 'Send slip'; ?></button>
-                    </form>
-                    <?php endif; ?>
                     <button type="button" class="btn btn-action-edit" onclick="document.getElementById('editEmployeeModal').showModal()">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Edit profile
@@ -156,10 +158,10 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
         </div>
         <div class="ev-readiness">
             <span class="ev-readiness-chip <?php echo $is_active ? 'ok' : 'warn'; ?>">
-                <?php echo $is_active ? 'Active — receives emails' : 'Inactive — no slip emails'; ?>
+                <?php echo $is_active ? 'Active employee' : 'Inactive'; ?>
             </span>
-            <span class="ev-readiness-chip <?php echo $has_email ? 'ok' : 'warn'; ?>">
-                <?php echo $has_email ? 'Email set' : 'No email'; ?>
+            <span class="ev-readiness-chip <?php echo $slip_in_portal ? 'ok' : 'warn'; ?>">
+                <?php echo $slip_in_portal ? $period_label . ' slip in portal' : 'Slip not in portal yet'; ?>
             </span>
             <span class="ev-readiness-chip <?php echo $has_salary ? 'ok' : 'warn'; ?>">
                 <?php echo $has_salary ? 'Salary configured' : 'Salary missing'; ?>
@@ -244,19 +246,37 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
                     </li>
                     <?php endif; ?>
                 </ul>
+                <div class="ev-documents-sidebar">
+                    <p class="ev-slip-history-heading">Verified documents</p>
+                    <p class="ev-slip-history-sub"><?php echo count($employee_documents); ?> approved · <?php echo count($pending_doc_requests); ?> pending</p>
+                    <?php if ($employee_documents !== []): ?>
+                        <ul class="ev-documents-list">
+                            <?php foreach ($employee_documents as $doc): ?>
+                                <li>
+                                    <div>
+                                        <strong><?php echo htmlspecialchars($doc['doc_label'] ?: employee_document_type_label($doc['doc_type'])); ?></strong>
+                                        <span><?php echo date('d M Y', strtotime($doc['approved_at'])); ?></span>
+                                    </div>
+                                    <a href="employee_document_download.php?doc_id=<?php echo (int) $doc['id']; ?>" target="_blank" rel="noopener">View</a>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else: ?>
+                        <p class="ev-slip-history-empty">No approved documents yet.</p>
+                    <?php endif; ?>
+                </div>
                 <div class="ev-slip-history">
-                    <p class="ev-slip-history-heading">Sent salary slips</p>
-                    <p class="ev-slip-history-sub">Up to last 6 periods with email sent</p>
-                    <?php if (count($recent_sent_slips) > 0): ?>
+                    <p class="ev-slip-history-heading">Salary slips in portal</p>
+                    <p class="ev-slip-history-sub">Up to last 6 periods visible to employee</p>
+                    <?php if (count($recent_available_slips) > 0): ?>
                         <ul class="ev-slip-history-list">
-                            <?php foreach ($recent_sent_slips as $slip):
+                            <?php foreach ($recent_available_slips as $slip):
                                 $slip_month = (int) $slip['period_month'];
                                 $slip_year = (int) $slip['period_year'];
                                 $slip_label = get_period_label($slip_year, $slip_month);
                                 $slip_view_url = 'employee_view.php?emp_id=' . urlencode($emp_id) . '&month=' . $slip_month . '&year=' . $slip_year;
                                 $slip_pdf_url = 'preview_slip.php?emp_id=' . urlencode($emp_id) . '&month=' . $slip_month . '&year=' . $slip_year;
                                 $is_current_period = ($slip_month === $month && $slip_year === $year);
-                                $sent_display = date('j M Y', strtotime($slip['sent_at']));
                                 ?>
                             <li class="ev-slip-history-item<?php echo $is_current_period ? ' is-active-period' : ''; ?>">
                                 <a href="<?php echo htmlspecialchars($slip_view_url); ?>" class="ev-slip-history-main">
@@ -264,18 +284,61 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
                                     <span class="ev-slip-history-net">₹<?php echo format_money($slip['net_salary']); ?></span>
                                 </a>
                                 <a href="<?php echo htmlspecialchars($slip_pdf_url); ?>" class="ev-slip-history-pdf" target="_blank" rel="noopener" title="Open PDF for <?php echo htmlspecialchars($slip_label); ?>">PDF</a>
-                                <span class="ev-slip-history-date">Sent <?php echo htmlspecialchars($sent_display); ?></span>
                             </li>
                             <?php endforeach; ?>
                         </ul>
                     <?php else: ?>
-                        <p class="ev-slip-history-empty">No salary slips sent yet. Use <a href="dashboard.php">Dashboard → Send Salary Slips</a>.</p>
+                        <p class="ev-slip-history-empty">No salary slips in the employee portal yet. Approve payroll on the <a href="dashboard.php">dashboard</a> after attendance is uploaded.</p>
                     <?php endif; ?>
                 </div>
             </div>
         </aside>
 
         <div class="ev-main">
+            <?php if ($pending_doc_requests !== []): ?>
+            <div class="alert alert-page ev-documents-alert">
+                <strong><?php echo count($pending_doc_requests); ?> document upload<?php echo count($pending_doc_requests) === 1 ? '' : 's'; ?> awaiting approval.</strong>
+                <a href="approvals.php">Review in approvals</a>
+            </div>
+            <?php endif; ?>
+
+            <div class="panel panel-elevated ev-documents-panel">
+                <div class="panel-header ev-panel-header-split">
+                    <div class="panel-title-group">
+                        <h3>Employee documents</h3>
+                        <span class="panel-badge"><?php echo count($employee_documents); ?> approved</span>
+                    </div>
+                </div>
+                <div class="panel-body padded">
+                    <?php if ($employee_documents === [] && $pending_doc_requests === []): ?>
+                        <p class="form-hint" style="margin:0;">No documents uploaded by this employee yet.</p>
+                    <?php else: ?>
+                        <div class="ev-documents-admin-grid">
+                            <?php foreach ($employee_documents as $doc): ?>
+                                <article class="ev-document-admin-card">
+                                    <span class="ev-document-admin-type"><?php echo htmlspecialchars(employee_document_type_label($doc['doc_type'])); ?></span>
+                                    <strong><?php echo htmlspecialchars($doc['doc_label'] ?: employee_document_type_label($doc['doc_type'])); ?></strong>
+                                    <span class="ev-document-admin-meta">
+                                        Approved <?php echo date('d M Y', strtotime($doc['approved_at'])); ?>
+                                        · <?php echo htmlspecialchars($doc['approved_by'] ?: 'admin'); ?>
+                                        · <?php echo htmlspecialchars(format_employee_document_size((int) $doc['file_size'])); ?>
+                                    </span>
+                                    <a href="employee_document_download.php?doc_id=<?php echo (int) $doc['id']; ?>" class="btn btn-outline btn-sm" target="_blank" rel="noopener">Open file</a>
+                                </article>
+                            <?php endforeach; ?>
+                            <?php foreach ($pending_doc_requests as $req): ?>
+                                <article class="ev-document-admin-card is-pending">
+                                    <span class="ev-document-admin-type">Pending</span>
+                                    <strong><?php echo htmlspecialchars($req['doc_label'] ?: employee_document_type_label($req['doc_type'])); ?></strong>
+                                    <span class="ev-document-admin-meta">Submitted <?php echo date('d M Y, h:i A', strtotime($req['created_at'])); ?></span>
+                                    <a href="employee_document_download.php?request_id=<?php echo (int) $req['id']; ?>" class="btn btn-outline btn-sm" target="_blank" rel="noopener">Preview upload</a>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
             <div class="panel panel-elevated ev-salary-panel">
                 <div class="panel-header ev-panel-header-split">
                     <div class="panel-title-group">
@@ -608,7 +671,7 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
                 </div>
                 <div class="panel-body att-cal-panel-body">
                     <p class="att-cal-month-title"><?php echo htmlspecialchars($period_label); ?></p>
-                    <?php echo render_attendance_calendar($year, $month, $attendance_by_date, $today_day, $holidays_map, false, $attendance_detail, $roster_weekoff_dates); ?>
+                    <?php echo render_attendance_calendar($year, $month, $attendance_by_date, $today_day, $holidays_map, false, $attendance_detail, $roster_weekoff_dates, $punch_half_day_dates); ?>
                     <?php if ($attendance_count === 0): ?>
                         <p class="att-cal-empty-note">No attendance uploaded for this month. <a href="upload_attendance.php">Upload attendance</a></p>
                     <?php endif; ?>
@@ -618,6 +681,9 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
                         <span class="att-legend-item"><span class="att-legend-swatch att-code-hd">HD</span> Half day</span>
                         <span class="att-legend-item"><span class="att-legend-swatch att-code-wo">WO</span> Week off</span>
                         <span class="att-legend-item"><span class="att-legend-swatch att-cal-dash">—</span> None</span>
+                        <?php if (!empty($punch_half_day_dates)): ?>
+                            <span class="att-legend-item att-legend-note">Late in + early out = HD</span>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

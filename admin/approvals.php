@@ -2,13 +2,15 @@
 require 'includes/header.php';
 require 'config.php';
 require_once 'includes/attendance_helper.php';
+require_once 'includes/employee_document_helper.php';
 
 $branch_filter = get_active_branch_id();
 $active_branch_label = get_branch_label($conn, $branch_filter);
 $pending_profile = get_pending_profile_requests($conn, $branch_filter);
+$pending_documents = get_pending_document_requests($conn, $branch_filter);
 $pending_attendance = get_pending_attendance_requests($conn, $branch_filter);
 $pending_leave = get_pending_leave_requests($conn, $branch_filter);
-$pending_total = count($pending_profile) + count($pending_attendance) + count($pending_leave);
+$pending_total = count($pending_profile) + count($pending_documents) + count($pending_attendance) + count($pending_leave);
 $leave_types_map = get_leave_types($conn);
 
 $employee_cache = [];
@@ -28,7 +30,7 @@ function approvals_employee($conn, $emp_id, &$cache)
         <div class="page-header-main">
             <p class="page-eyebrow">Employee portal</p>
             <h2>Approval requests</h2>
-            <p>Review profile updates, leave applications and manual attendance submitted by employees<?php echo $branch_filter !== null ? ' at <strong>' . htmlspecialchars($active_branch_label) . '</strong>' : ''; ?>.</p>
+            <p>Review profile updates, document uploads, leave applications and manual attendance submitted by employees<?php echo $branch_filter !== null ? ' at <strong>' . htmlspecialchars($active_branch_label) . '</strong>' : ''; ?>.</p>
         </div>
     </div>
 
@@ -63,6 +65,16 @@ function approvals_employee($conn, $emp_id, &$cache)
                 <span class="approvals-stat-label">Profile updates</span>
                 <strong class="approvals-stat-value"><?php echo count($pending_profile); ?></strong>
                 <span class="approvals-stat-hint">Contact &amp; bank changes</span>
+            </div>
+        </div>
+        <div class="approvals-stat approvals-stat-documents">
+            <span class="approvals-stat-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </span>
+            <div>
+                <span class="approvals-stat-label">Documents</span>
+                <strong class="approvals-stat-value"><?php echo count($pending_documents); ?></strong>
+                <span class="approvals-stat-hint">Aadhar, PAN &amp; more</span>
             </div>
         </div>
         <div class="approvals-stat approvals-stat-leave">
@@ -177,6 +189,85 @@ function approvals_employee($conn, $emp_id, &$cache)
         <section class="panel panel-elevated approvals-panel">
             <div class="panel-header">
                 <div class="panel-title-group approvals-panel-head">
+                    <span class="approvals-panel-icon approvals-panel-icon-documents" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    </span>
+                    <div>
+                        <h3>Document uploads</h3>
+                        <p class="approvals-panel-desc">Employees upload Aadhar, PAN, marksheet and other files for verification.</p>
+                    </div>
+                    <span class="panel-badge"><?php echo count($pending_documents); ?> pending</span>
+                </div>
+            </div>
+            <div class="panel-body approvals-panel-body">
+                <?php if ($pending_documents === []): ?>
+                    <div class="empty-state compact approvals-empty">
+                        <div class="empty-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        </div>
+                        <h4>No document uploads</h4>
+                        <p>When employees submit documents, they will appear here for review.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="approvals-card-list">
+                        <?php foreach ($pending_documents as $req): ?>
+                            <?php
+                            $emp_initial = strtoupper(substr($req['employee_name'], 0, 1));
+                            $doc_label = $req['doc_label'] ?: employee_document_type_label($req['doc_type']);
+                            ?>
+                            <article class="approval-card approval-card-document">
+                                <header class="approval-card-top">
+                                    <div class="approval-card-employee">
+                                        <span class="approval-card-avatar" aria-hidden="true"><?php echo htmlspecialchars($emp_initial); ?></span>
+                                        <div>
+                                            <a href="employee_view.php?emp_id=<?php echo urlencode($req['emp_id']); ?>" class="approval-card-name"><?php echo htmlspecialchars($req['employee_name']); ?></a>
+                                            <span class="approval-card-meta"><?php echo htmlspecialchars($req['emp_id']); ?> · <?php echo htmlspecialchars(get_branch_label($conn, (int) $req['branch_id'])); ?></span>
+                                        </div>
+                                    </div>
+                                    <time class="approval-card-time" datetime="<?php echo htmlspecialchars($req['created_at']); ?>"><?php echo date('d M Y, h:i A', strtotime($req['created_at'])); ?></time>
+                                </header>
+
+                                <div class="approval-doc-box">
+                                    <div class="approval-doc-meta">
+                                        <span class="approval-doc-type"><?php echo htmlspecialchars(employee_document_type_label($req['doc_type'])); ?></span>
+                                        <strong><?php echo htmlspecialchars($doc_label); ?></strong>
+                                        <span><?php echo htmlspecialchars($req['original_filename']); ?> · <?php echo htmlspecialchars(format_employee_document_size((int) $req['file_size'])); ?></span>
+                                    </div>
+                                    <a href="employee_document_download.php?request_id=<?php echo (int) $req['id']; ?>" class="btn btn-outline btn-sm" target="_blank" rel="noopener">Preview file</a>
+                                </div>
+
+                                <?php if (!empty($req['employee_note'])): ?>
+                                    <div class="approval-employee-note">
+                                        <strong>Employee note</strong>
+                                        <p><?php echo htmlspecialchars($req['employee_note']); ?></p>
+                                    </div>
+                                <?php endif; ?>
+
+                                <footer class="approval-card-footer">
+                                    <form method="POST" action="approval_save.php" class="approval-actions">
+                                        <?php echo csrf_field(); ?>
+                                        <input type="hidden" name="request_type" value="document">
+                                        <input type="hidden" name="request_id" value="<?php echo (int) $req['id']; ?>">
+                                        <label class="approval-note-field">
+                                            <span class="sr-only">Note to employee</span>
+                                            <input type="text" name="review_note" placeholder="Optional note to employee" class="approval-note-input">
+                                        </label>
+                                        <div class="approval-action-buttons">
+                                            <button type="submit" name="action" value="approve" class="btn btn-sm btn-success">Approve</button>
+                                            <button type="submit" name="action" value="reject" class="btn btn-outline btn-sm btn-danger-outline" onclick="return confirm('Reject this document upload?');">Reject</button>
+                                        </div>
+                                    </form>
+                                </footer>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </section>
+
+        <section class="panel panel-elevated approvals-panel">
+            <div class="panel-header">
+                <div class="panel-title-group approvals-panel-head">
                     <span class="approvals-panel-icon approvals-panel-icon-attendance" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     </span>
@@ -269,7 +360,7 @@ function approvals_employee($conn, $emp_id, &$cache)
                 </span>
                 <div>
                     <h3>Leave applications</h3>
-                    <p class="approvals-panel-desc">Multi-day leave requests from employees. Approval marks each day as leave on attendance.</p>
+                    <p class="approvals-panel-desc">Pending leave requests — approve to mark attendance.</p>
                 </div>
                 <span class="panel-badge"><?php echo count($pending_leave); ?> pending</span>
             </div>
@@ -284,114 +375,86 @@ function approvals_employee($conn, $emp_id, &$cache)
                     <p>When employees apply for leave, they will appear here for review.</p>
                 </div>
             <?php else: ?>
-                <div class="approvals-card-list">
-                    <?php foreach ($pending_leave as $req): ?>
-                        <?php
+                <ul class="approvals-leave-list">
+                    <?php foreach ($pending_leave as $req):
                         $emp_initial = strtoupper(substr($req['employee_name'], 0, 1));
                         $days = leave_request_day_count($req['from_date'], $req['to_date']);
                         $lt_label = $leave_types_map[$req['leave_type']]['name'] ?? $req['leave_type'];
-                        ?>
-                        <?php
-                        $leave_dates = leave_request_dates_in_range($req['from_date'], $req['to_date']);
                         $from_ts = strtotime($req['from_date']);
                         $to_ts = strtotime($req['to_date']);
+                        $is_cancel = ($req['request_status'] ?? '') === 'cancellation_pending';
+                        $period_label = $req['from_date'] === $req['to_date']
+                            ? date('D, d M Y', $from_ts)
+                            : date('d M', $from_ts) . ' – ' . date('d M Y', $to_ts);
+                        $leave_dates = leave_request_dates_in_range($req['from_date'], $req['to_date']);
                         ?>
-                        <article class="approval-card approval-card-leave">
-                            <header class="approval-card-top approval-card-top-leave">
-                                <div class="approval-card-employee">
-                                    <span class="approval-card-avatar approval-card-avatar-leave" aria-hidden="true"><?php echo htmlspecialchars($emp_initial); ?></span>
-                                    <div>
-                                        <a href="employee_view.php?emp_id=<?php echo urlencode($req['emp_id']); ?>" class="approval-card-name"><?php echo htmlspecialchars($req['employee_name']); ?></a>
-                                        <span class="approval-card-meta"><?php echo htmlspecialchars($req['emp_id']); ?> · <?php echo htmlspecialchars(get_branch_label($conn, (int) $req['branch_id'])); ?></span>
-                                    </div>
+                    <li class="approval-leave-item<?php echo $is_cancel ? ' is-cancel-request' : ''; ?>">
+                        <div class="approval-leave-item-main">
+                            <div class="approval-leave-item-employee">
+                                <span class="approval-leave-item-avatar" aria-hidden="true"><?php echo htmlspecialchars($emp_initial); ?></span>
+                                <div class="approval-leave-item-employee-text">
+                                    <a href="employee_view.php?emp_id=<?php echo urlencode($req['emp_id']); ?>" class="approval-leave-item-name"><?php echo htmlspecialchars($req['employee_name']); ?></a>
+                                    <span class="approval-leave-item-meta"><?php echo htmlspecialchars($req['emp_id']); ?> · <?php echo htmlspecialchars(get_branch_label($conn, (int) $req['branch_id'])); ?></span>
                                 </div>
-                                <div class="approval-leave-head-badges">
-                                    <?php if ($req['request_status'] === 'cancellation_pending'): ?>
-                                        <span class="approval-leave-type-badge" style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5;">Cancellation Request</span>
-                                    <?php endif; ?>
-                                    <span class="approval-leave-type-badge"><?php echo htmlspecialchars($req['leave_type']); ?></span>
-                                    <span class="approval-leave-duration-badge"><?php echo $days; ?> day<?php echo $days === 1 ? '' : 's'; ?></span>
-                                </div>
-                            </header>
+                            </div>
 
-                            <div class="approval-leave-body">
-                                <div class="approval-leave-timeline">
-                                    <div class="approval-leave-date-card">
-                                        <span class="approval-leave-date-label">From</span>
-                                        <strong class="approval-leave-date-day"><?php echo date('d', $from_ts); ?></strong>
-                                        <span class="approval-leave-date-month"><?php echo date('M Y', $from_ts); ?></span>
-                                        <span class="approval-leave-date-weekday"><?php echo date('l', $from_ts); ?></span>
-                                    </div>
-                                    <?php if ($req['from_date'] !== $req['to_date']): ?>
-                                        <div class="approval-leave-timeline-mid" aria-hidden="true">
-                                            <span class="approval-leave-timeline-line"></span>
-                                            <span class="approval-leave-timeline-arrow">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                                            </span>
-                                        </div>
-                                        <div class="approval-leave-date-card">
-                                            <span class="approval-leave-date-label">To</span>
-                                            <strong class="approval-leave-date-day"><?php echo date('d', $to_ts); ?></strong>
-                                            <span class="approval-leave-date-month"><?php echo date('M Y', $to_ts); ?></span>
-                                            <span class="approval-leave-date-weekday"><?php echo date('l', $to_ts); ?></span>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
+                            <div class="approval-leave-item-period">
+                                <span class="approval-leave-item-period-label">Leave period</span>
+                                <strong class="approval-leave-item-period-value"><?php echo htmlspecialchars($period_label); ?></strong>
+                                <span class="approval-leave-item-days"><?php echo (int) $days; ?> day<?php echo $days === 1 ? '' : 's'; ?></span>
+                            </div>
 
-                                <div class="approval-leave-meta-row">
-                                    <div class="approval-leave-meta-item">
-                                        <span class="approval-leave-meta-label">Leave type</span>
-                                        <span class="approval-leave-type-pill att-code-l"><?php echo htmlspecialchars($lt_label); ?> <em>(<?php echo htmlspecialchars($req['leave_type']); ?>)</em></span>
-                                    </div>
-                                    <div class="approval-leave-meta-item">
-                                        <span class="approval-leave-meta-label">Submitted</span>
-                                        <time datetime="<?php echo htmlspecialchars($req['created_at']); ?>"><?php echo date('d M Y, h:i A', strtotime($req['created_at'])); ?></time>
-                                    </div>
-                                </div>
+                            <div class="approval-leave-item-type">
+                                <?php if ($is_cancel): ?>
+                                    <span class="approval-leave-item-flag">Cancel request</span>
+                                <?php endif; ?>
+                                <span class="approval-leave-item-type-code"><?php echo htmlspecialchars($req['leave_type']); ?></span>
+                                <span class="approval-leave-item-type-name"><?php echo htmlspecialchars($lt_label); ?></span>
+                            </div>
 
-                                <?php if ($days <= 14): ?>
-                                    <div class="approval-leave-dates-strip">
-                                        <span class="approval-leave-meta-label">Days covered</span>
-                                        <div class="approval-leave-date-chips">
-                                            <?php foreach ($leave_dates as $ld): ?>
-                                                <span class="approval-leave-date-chip"><?php echo date('D, d M', strtotime($ld)); ?></span>
-                                            <?php endforeach; ?>
-                                        </div>
+                            <time class="approval-leave-item-submitted" datetime="<?php echo htmlspecialchars($req['created_at']); ?>">
+                                <?php echo date('d M Y, h:i A', strtotime($req['created_at'])); ?>
+                            </time>
+                        </div>
+
+                        <?php if (!empty($req['employee_note']) || ($days <= 5 && count($leave_dates) > 1)): ?>
+                            <div class="approval-leave-item-extra">
+                                <?php if (!empty($req['employee_note'])): ?>
+                                    <p class="approval-leave-item-note"><strong>Reason:</strong> <?php echo htmlspecialchars($req['employee_note']); ?></p>
+                                <?php endif; ?>
+                                <?php if ($days <= 5 && count($leave_dates) > 1): ?>
+                                    <div class="approval-leave-item-date-chips">
+                                        <?php foreach ($leave_dates as $ld): ?>
+                                            <span><?php echo date('D d M', strtotime($ld)); ?></span>
+                                        <?php endforeach; ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
+                        <?php endif; ?>
 
-                            <?php if (!empty($req['employee_note'])): ?>
-                                <div class="approval-employee-note approval-employee-note-leave">
-                                    <strong>Employee reason</strong>
-                                    <p><?php echo htmlspecialchars($req['employee_note']); ?></p>
+                        <footer class="approval-leave-item-footer">
+                            <form method="POST" action="approval_save.php" class="approval-leave-item-form">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="request_type" value="leave">
+                                <input type="hidden" name="request_id" value="<?php echo (int) $req['id']; ?>">
+                                <?php if ($is_cancel): ?>
+                                    <input type="hidden" name="is_cancellation" value="1">
+                                <?php endif; ?>
+                                <input type="text" name="review_note" placeholder="Note to employee (optional)" class="approval-leave-item-note-input" aria-label="Note to employee">
+                                <div class="approval-leave-item-buttons">
+                                    <?php if ($is_cancel): ?>
+                                        <button type="submit" name="action" value="approve" class="btn btn-sm btn-danger">Approve cancel</button>
+                                        <button type="submit" name="action" value="reject" class="btn btn-outline btn-sm" onclick="return confirm('Reject this cancellation? The leave will remain approved.');">Reject cancel</button>
+                                    <?php else: ?>
+                                        <button type="submit" name="action" value="approve" class="btn btn-sm btn-success">Approve</button>
+                                        <button type="submit" name="action" value="reject" class="btn btn-outline btn-sm btn-danger-outline" onclick="return confirm('Reject this leave request?');">Reject</button>
+                                    <?php endif; ?>
                                 </div>
-                            <?php endif; ?>
-
-                            <footer class="approval-card-footer">
-                                <form method="POST" action="approval_save.php" class="approval-actions">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="request_type" value="leave">
-                                    <input type="hidden" name="request_id" value="<?php echo (int) $req['id']; ?>">
-                                    <label class="approval-note-field">
-                                        <span class="sr-only">Note to employee</span>
-                                        <input type="text" name="review_note" placeholder="Optional note to employee" class="approval-note-input">
-                                    </label>
-                                    <div class="approval-action-buttons">
-                                        <?php if ($req['request_status'] === 'cancellation_pending'): ?>
-                                            <input type="hidden" name="is_cancellation" value="1">
-                                            <button type="submit" name="action" value="approve" class="btn btn-sm btn-danger">Approve cancellation</button>
-                                            <button type="submit" name="action" value="reject" class="btn btn-outline btn-sm" onclick="return confirm('Reject this cancellation? The leave will remain approved.');">Reject cancellation</button>
-                                        <?php else: ?>
-                                            <button type="submit" name="action" value="approve" class="btn btn-sm btn-success">Approve leave</button>
-                                            <button type="submit" name="action" value="reject" class="btn btn-outline btn-sm btn-danger-outline" onclick="return confirm('Reject this leave request?');">Reject</button>
-                                        <?php endif; ?>
-                                    </div>
-                                </form>
-                            </footer>
-                        </article>
+                            </form>
+                        </footer>
+                    </li>
                     <?php endforeach; ?>
-                </div>
+                </ul>
             <?php endif; ?>
         </div>
     </section>

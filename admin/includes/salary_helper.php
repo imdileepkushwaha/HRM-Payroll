@@ -515,35 +515,17 @@ function render_salary_slip_email_html($employee, $salary, $settings, $year, $mo
 }
 
 /**
- * Latest successful send per period for one employee (newest periods first).
+ * Salary slip periods available in the employee portal.
  *
- * @return array<int, array{period_month:int, period_year:int, net_salary:string, sent_at:string, sent_to?:string}>
+ * @return array<int, array{period_month:int, period_year:int, net_salary:float}>
  */
 function get_employee_sent_slip_logs($conn, $emp_id, $limit = 24)
 {
-    $limit = max(1, min(48, (int) $limit));
-    $stmt = $conn->prepare("
-        SELECT l.period_month, l.period_year, l.net_salary, l.sent_at, l.sent_to
-        FROM salary_slip_logs l
-        INNER JOIN (
-            SELECT period_month, period_year, MAX(id) AS max_id
-            FROM salary_slip_logs
-            WHERE emp_id = ? AND status = 'sent'
-            GROUP BY period_year, period_month
-        ) latest ON l.id = latest.max_id
-        ORDER BY l.period_year DESC, l.period_month DESC
-        LIMIT " . $limit . "
-    ");
-    $stmt->bind_param('s', $emp_id);
-    $stmt->execute();
-    $rows = [];
-    $result = $stmt->get_result();
-    if ($result) {
-        while ($row = $result->fetch_assoc()) {
-            $rows[] = $row;
-        }
-    }
-    return $rows;
+    require_once __DIR__ . '/settings_helper.php';
+    require_once __DIR__ . '/payroll_extensions.php';
+    $settings = get_all_settings($conn);
+
+    return get_employee_available_salary_slips_by_id($conn, $emp_id, $settings, $limit);
 }
 
 function get_employee_recent_sent_slip_logs($conn, $emp_id, $limit = 6)

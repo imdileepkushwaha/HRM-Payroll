@@ -1,26 +1,37 @@
 <?php
-if (isset($GLOBALS['pk_db_conn']) && ($GLOBALS['pk_db_conn'] instanceof mysqli || $GLOBALS['pk_db_conn'] instanceof PayrollDbConnection)) {
+if (!defined('PAYROLL_APP_TIMEZONE')) {
+    define('PAYROLL_APP_TIMEZONE', 'Asia/Kolkata');
+}
+date_default_timezone_set(PAYROLL_APP_TIMEZONE);
+
+if (isset($GLOBALS['pk_db_conn']) && $GLOBALS['pk_db_conn'] instanceof mysqli) {
     $conn = $GLOBALS['pk_db_conn'];
     return;
 }
 
 require_once __DIR__ . '/includes/db_connection.php';
 
-define('PAYROLL_DB_DRIVER', 'mssql');
+define('PAYROLL_DB_DRIVER', 'mysql');
+define('PAYROLL_MYSQL_HOST', '127.0.0.1');
+define('PAYROLL_MYSQL_DATABASE', 'hrm_db');
+define('PAYROLL_MYSQL_USER', 'root');
+define('PAYROLL_MYSQL_PASS', '');
+
+/** Legacy MSSQL source — used only by scripts/migrate_mssql_to_mysql.php */
 define('PAYROLL_MSSQL_SERVER', 'localhost');
-define('PAYROLL_MSSQL_DATABASE', 'ONtime_Att');
-define('PAYROLL_MSSQL_USER', '');
-define('PAYROLL_MSSQL_PASS', '');
+define('PAYROLL_MSSQL_DATABASE', 'payroll_db');
+define('PAYROLL_MSSQL_USER', 'payroll_db');
+define('PAYROLL_MSSQL_PASS', 'OfWwvvtwsF66%*3h');
 
 if (!defined('PAYROLL_ALLOW_SETUP_TOOLS')) {
     define('PAYROLL_ALLOW_SETUP_TOOLS', true);
 }
 
-$conn = payroll_open_mssql_connection(
-    PAYROLL_MSSQL_SERVER,
-    PAYROLL_MSSQL_DATABASE,
-    PAYROLL_MSSQL_USER !== '' ? PAYROLL_MSSQL_USER : null,
-    PAYROLL_MSSQL_PASS !== '' ? PAYROLL_MSSQL_PASS : null
+$conn = payroll_open_mysql_connection(
+    PAYROLL_MYSQL_HOST,
+    PAYROLL_MYSQL_DATABASE,
+    PAYROLL_MYSQL_USER,
+    PAYROLL_MYSQL_PASS
 );
 
 if ($conn->connect_error) {

@@ -4,7 +4,7 @@ if (php_sapi_name() !== 'cli') {
     die('CLI only');
 }
 require 'config.php';
-require 'includes/settings_helper.php';
+require_once 'includes/settings_helper.php';
 
 $year = (int) date('Y');
 $month = (int) date('n');

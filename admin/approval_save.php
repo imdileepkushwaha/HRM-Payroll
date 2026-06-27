@@ -78,6 +78,22 @@ if ($type === 'profile') {
             ? approve_leave_request($conn, $request_id, $reviewer, $note)
             : reject_leave_request($conn, $request_id, $reviewer, $note);
     }
+} elseif ($type === 'document') {
+    require_once 'includes/employee_document_helper.php';
+    $stmt = $conn->prepare('SELECT branch_id FROM employee_document_requests WHERE id = ? AND request_status = ?');
+    $pending = 'pending';
+    $stmt->bind_param('is', $request_id, $pending);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    if (!$row || ($branch_filter !== null && (int) $row['branch_id'] !== $branch_filter)) {
+        $_SESSION['flash_message'] = 'Request not found or not in your branch.';
+        $_SESSION['flash_success'] = false;
+        header('Location: approvals.php');
+        exit;
+    }
+    $result = $action === 'approve'
+        ? approve_document_request($conn, $request_id, $reviewer, $note)
+        : reject_document_request($conn, $request_id, $reviewer, $note);
 } else {
     $_SESSION['flash_message'] = 'Unknown request type.';
     $_SESSION['flash_success'] = false;

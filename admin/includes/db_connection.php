@@ -21,6 +21,29 @@ class PayrollDbResult
         }
         return $this->rows[$this->index++];
     }
+
+    public function fetch_all($mode = null)
+    {
+        return $this->rows;
+    }
+}
+
+function payroll_fetch_all_assoc($result): array
+{
+    if (!$result) {
+        return [];
+    }
+    if ($result instanceof PayrollDbResult) {
+        return $result->fetch_all();
+    }
+    if (method_exists($result, 'fetch_all')) {
+        return $result->fetch_all(defined('MYSQLI_ASSOC') ? MYSQLI_ASSOC : 0) ?: [];
+    }
+    $rows = [];
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = $row;
+    }
+    return $rows;
 }
 
 class PayrollDbStatement
@@ -66,7 +89,11 @@ class PayrollDbStatement
                 if ($type === 'i') {
                     $this->stmt->bindValue($position++, (int) $value, PDO::PARAM_INT);
                 } elseif ($type === 'd') {
-                    $this->stmt->bindValue($position++, (float) $value);
+                    if ($value === null || $value === '') {
+                        $this->stmt->bindValue($position++, null, PDO::PARAM_NULL);
+                    } else {
+                        $this->stmt->bindValue($position++, (float) $value);
+                    }
                 } else {
                     $this->stmt->bindValue($position++, $value, PDO::PARAM_STR);
                 }
@@ -153,4 +180,21 @@ function payroll_open_mssql_connection($server, $database, $user = null, $pass =
         return new PayrollDbConnection($dsn);
     }
     return new PayrollDbConnection($dsn, $user, $pass);
+}
+
+function payroll_open_mysql_connection($host, $database, $user, $pass)
+{
+    mysqli_report(MYSQLI_REPORT_OFF);
+    $conn = new mysqli($host, $user, $pass, $database);
+    if ($conn->connect_errno === 1049) {
+        $bootstrap = new mysqli($host, $user, $pass);
+        if ($bootstrap->connect_error) {
+            return $conn;
+        }
+        $safe_db = str_replace('`', '``', $database);
+        $bootstrap->query("CREATE DATABASE IF NOT EXISTS `{$safe_db}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        $bootstrap->close();
+        $conn = new mysqli($host, $user, $pass, $database);
+    }
+    return $conn;
 }

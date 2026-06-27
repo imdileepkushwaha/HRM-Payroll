@@ -108,7 +108,7 @@ function get_employee_profile_requests($conn, $emp_id, $limit = 10)
     $stmt = $conn->prepare('SELECT * FROM employee_profile_requests WHERE emp_id = ? ORDER BY created_at DESC LIMIT ?');
     $stmt->bind_param('si', $emp_id, $limit);
     $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return payroll_fetch_all_assoc($stmt->get_result());
 }
 
 function get_employee_attendance_requests($conn, $emp_id, $limit = 20)
@@ -116,7 +116,7 @@ function get_employee_attendance_requests($conn, $emp_id, $limit = 20)
     $stmt = $conn->prepare('SELECT * FROM employee_attendance_requests WHERE emp_id = ? ORDER BY created_at DESC LIMIT ?');
     $stmt->bind_param('si', $emp_id, $limit);
     $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return payroll_fetch_all_assoc($stmt->get_result());
 }
 
 function create_employee_profile_request($conn, $emp_id, $branch_id, array $proposed, $note = '')
@@ -256,7 +256,7 @@ function get_pending_leave_days_by_type($conn, $emp_id, $leave_type)
     ");
     $stmt->bind_param('ss', $emp_id, $leave_type);
     $stmt->execute();
-    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $rows = payroll_fetch_all_assoc($stmt->get_result());
     $days = 0;
     foreach ($rows as $row) {
         $days += leave_request_day_count($row['from_date'], $row['to_date']);
@@ -345,7 +345,7 @@ function get_employee_leave_requests($conn, $emp_id, $limit = 20)
     $stmt = $conn->prepare('SELECT * FROM employee_leave_requests WHERE emp_id = ? ORDER BY created_at DESC LIMIT ?');
     $stmt->bind_param('si', $emp_id, $limit);
     $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return payroll_fetch_all_assoc($stmt->get_result());
 }
 
 function create_employee_leave_request($conn, $emp_id, $branch_id, $from_date, $to_date, $leave_type, $note, $settings)
@@ -425,6 +425,7 @@ function count_pending_approvals_for_branch($conn, $branch_id = null)
     $profile_sql = "SELECT COUNT(*) AS c FROM employee_profile_requests WHERE request_status = 'pending'";
     $att_sql = "SELECT COUNT(*) AS c FROM employee_attendance_requests WHERE request_status = 'pending'";
     $leave_sql = "SELECT COUNT(*) AS c FROM employee_leave_requests WHERE request_status IN ('pending', 'cancellation_pending')";
+    $doc_sql = "SELECT COUNT(*) AS c FROM employee_document_requests WHERE request_status = 'pending'";
     $types = '';
     $params = [];
 
@@ -432,12 +433,13 @@ function count_pending_approvals_for_branch($conn, $branch_id = null)
         $profile_sql .= ' AND branch_id = ?';
         $att_sql .= ' AND branch_id = ?';
         $leave_sql .= ' AND branch_id = ?';
+        $doc_sql .= ' AND branch_id = ?';
         $types = 'i';
         $params = [$branch_id];
     }
 
     $total = 0;
-    foreach ([$profile_sql, $att_sql, $leave_sql] as $sql) {
+    foreach ([$profile_sql, $att_sql, $leave_sql, $doc_sql] as $sql) {
         $stmt = $conn->prepare($sql);
         if ($types !== '') {
             $stmt->bind_param($types, ...$params);
@@ -465,7 +467,7 @@ function get_pending_profile_requests($conn, $branch_id = null)
         $stmt = $conn->prepare($sql . ' ORDER BY r.created_at ASC');
     }
     $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return payroll_fetch_all_assoc($stmt->get_result());
 }
 
 function get_pending_attendance_requests($conn, $branch_id = null)
@@ -484,7 +486,7 @@ function get_pending_attendance_requests($conn, $branch_id = null)
         $stmt = $conn->prepare($sql . ' ORDER BY r.created_at ASC');
     }
     $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return payroll_fetch_all_assoc($stmt->get_result());
 }
 
 function approve_profile_request($conn, $request_id, $reviewer, $note = '')
@@ -632,7 +634,7 @@ function get_pending_leave_requests($conn, $branch_id = null)
         $stmt = $conn->prepare($sql . ' ORDER BY r.created_at ASC');
     }
     $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return payroll_fetch_all_assoc($stmt->get_result());
 }
 
 function get_all_leave_requests_with_names($conn, $branch_id = null)
@@ -651,7 +653,7 @@ function get_all_leave_requests_with_names($conn, $branch_id = null)
         $stmt = $conn->prepare($sql . ' ORDER BY r.created_at DESC');
     }
     $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    return payroll_fetch_all_assoc($stmt->get_result());
 }
 
 function approve_leave_request($conn, $request_id, $reviewer, $note = '')

@@ -6,34 +6,46 @@ require_once __DIR__ . '/../../includes/settings_helper.php';
 
 $footer_settings = get_all_settings($conn);
 $footer_company = trim($footer_settings['company_name'] ?? '') ?: 'Payroll Company';
-$footer_logo_initial = strtoupper(substr($footer_company, 0, 1)) ?: 'P';
 $footer_year = (int) date('Y');
-$footer_page = $current_page ?? basename($_SERVER['PHP_SELF'] ?? '');
-$footer_branch = $branch_label ?? '';
 ?>
-    </main>
-    <footer class="emp-site-footer">
-        <div class="emp-site-footer-inner">
-            <div class="emp-site-footer-brand">
-                <span class="emp-brand-logo" aria-hidden="true"><?php echo htmlspecialchars($footer_logo_initial); ?></span>
-                <div class="emp-site-footer-brand-text">
-                    <strong><?php echo htmlspecialchars($footer_company); ?></strong>
-                    <span>Employee Portal<?php echo $footer_branch !== '' ? ' · ' . htmlspecialchars($footer_branch) : ''; ?></span>
-                </div>
+        </main>
+        <footer class="emp-site-footer emp-site-footer-compact">
+            <div class="emp-site-footer-bottom">
+                <span>&copy; <?php echo $footer_year; ?> <?php echo htmlspecialchars($footer_company); ?>. All rights reserved.</span>
+                <a href="../index.php">Admin login</a>
             </div>
-            <nav class="emp-site-footer-nav" aria-label="Footer navigation">
-                <a href="dashboard.php" class="<?php echo $footer_page === 'dashboard.php' ? 'active' : ''; ?>">Dashboard</a>
-                <a href="attendance.php" class="<?php echo $footer_page === 'attendance.php' ? 'active' : ''; ?>">My attendance</a>
-                <a href="leave.php" class="<?php echo $footer_page === 'leave.php' ? 'active' : ''; ?>">Apply leave</a>
-                <a href="salary_slips.php" class="<?php echo $footer_page === 'salary_slips.php' ? 'active' : ''; ?>">Salary slips</a>
-                <a href="details.php" class="<?php echo $footer_page === 'details.php' ? 'active' : ''; ?>">My details</a>
-                <a href="logout.php">Logout</a>
-            </nav>
-        </div>
-        <div class="emp-site-footer-bottom">
-            <span>&copy; <?php echo $footer_year; ?> <?php echo htmlspecialchars($footer_company); ?>. All rights reserved.</span>
-            <a href="../index.php">Admin login</a>
-        </div>
-    </footer>
+        </footer>
+    </div>
+    <script>
+    (function () {
+        var sidebar = document.getElementById('empSidebar');
+        var backdrop = document.getElementById('empSidebarBackdrop');
+        var toggle = document.getElementById('empSidebarToggle');
+        if (!sidebar || !toggle) {
+            return;
+        }
+        function setOpen(open) {
+            document.body.classList.toggle('emp-sidebar-open', open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+            if (backdrop) {
+                backdrop.hidden = !open;
+            }
+        }
+        toggle.addEventListener('click', function () {
+            setOpen(!document.body.classList.contains('emp-sidebar-open'));
+        });
+        if (backdrop) {
+            backdrop.addEventListener('click', function () { setOpen(false); });
+        }
+        sidebar.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (window.matchMedia('(max-width: 900px)').matches) {
+                    setOpen(false);
+                }
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

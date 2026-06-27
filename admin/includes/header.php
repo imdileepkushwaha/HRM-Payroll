@@ -33,17 +33,31 @@ $pending_approvals_count = count_pending_approvals_for_branch($conn, get_active_
         </div>
         <ul class="sidebar-menu">
             <li>
-                <a href="dashboard.php" class="<?php echo $current_page === 'dashboard.php' ? 'active' : ''; ?>">
+                <a href="dashboard.php" class="<?php echo $current_page === 'dashboard.php' ? 'active' : ''; ?>" title="Dashboard">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                     <span>Dashboard</span>
                 </a>
             </li>
+            <li class="sidebar-nav-label" aria-hidden="true">Attendance</li>
             <li>
-                <a href="upload_attendance.php" class="<?php echo $current_page === 'upload_attendance.php' ? 'active' : ''; ?>">
+                <a href="upload_attendance.php" class="<?php echo $current_page === 'upload_attendance.php' ? 'active' : ''; ?>" title="Upload Attendance">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <span>Upload Attendance</span>
                 </a>
             </li>
+            <li>
+                <a href="punch_logs.php" class="<?php echo in_array($current_page, ['punch_logs.php', 'punch_report.php'], true) ? 'active' : ''; ?>" title="Punch Logs">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>Punch Logs</span>
+                </a>
+            </li>
+            <li>
+                <a href="punch_report.php" class="<?php echo $current_page === 'punch_report.php' ? 'active' : ''; ?>" title="Punch Report">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                    <span>Punch Report</span>
+                </a>
+            </li>
+            <li class="sidebar-nav-label" aria-hidden="true">Payroll</li>
             <li>
                 <a href="holidays.php" class="<?php echo $current_page === 'holidays.php' ? 'active' : ''; ?>">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>
@@ -54,12 +68,6 @@ $pending_approvals_count = count_pending_approvals_for_branch($conn, get_active_
                 <a href="weekoff_roster.php" class="<?php echo $current_page === 'weekoff_roster.php' ? 'active' : ''; ?>">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><path d="M9 16h6M12 13v6"/></svg>
                     <span>Weekoff roster</span>
-                </a>
-            </li>
-            <li>
-                <a href="slip_logs.php" class="<?php echo $current_page === 'slip_logs.php' ? 'active' : ''; ?>">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                    <span>Slip history</span>
                 </a>
             </li>
             <li>

@@ -1,7 +1,7 @@
 <?php
 require 'includes/header.php';
 require 'config.php';
-require 'includes/settings_helper.php';
+require_once 'includes/settings_helper.php';
 require 'includes/signature_helper.php';
 require_once 'includes/payroll_extensions.php';
 
@@ -27,7 +27,7 @@ function render_password_input($name, $attrs = '')
 $tab_meta = [
     'smtp' => [
         'title' => 'SMTP & Email',
-        'desc' => 'Configure outgoing mail for salary slip delivery.',
+        'desc' => 'Optional outgoing mail settings (not used for salary slips).',
         'icon' => '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
     ],
     'password' => [
@@ -44,6 +44,16 @@ $tab_meta = [
         'title' => 'Leave & Attendance',
         'desc' => 'Manage leave quotas and monthly limits.',
         'icon' => '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    ],
+    'punch' => [
+        'title' => 'Punch & Geo',
+        'desc' => 'Employee punch in/out and office geofence.',
+        'icon' => '<circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4"/>',
+    ],
+    'branches' => [
+        'title' => 'Branches',
+        'desc' => 'Add or remove office branches.',
+        'icon' => '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
     ],
     'admins' => [
         'title' => 'Admin Users',
@@ -74,7 +84,7 @@ $active_meta = $tab_meta[$tab] ?? $tab_meta['smtp'];
         <span class="status-dot"></span>
         <div>
             <strong><?php echo $smtp_ready ? 'SMTP configured' : 'SMTP not configured'; ?></strong>
-            <span><?php echo $smtp_ready ? 'Ready to send salary slips' : 'Set up email to send slips'; ?></span>
+            <span><?php echo $smtp_ready ? 'Configured' : 'Not configured'; ?></span>
         </div>
     </div>
     <div class="settings-status-chip neutral">
@@ -91,6 +101,7 @@ $active_meta = $tab_meta[$tab] ?? $tab_meta['smtp'];
         <p class="settings-nav-label">Sections</p>
         <?php foreach ($tab_meta as $key => $meta): ?>
             <?php if ($key === 'admins' && !is_super_admin()) { continue; } ?>
+            <?php if ($key === 'branches' && !is_super_admin()) { continue; } ?>
             <a href="?tab=<?php echo $key; ?>" class="settings-tab <?php echo $tab === $key ? 'active' : ''; ?>">
                 <span class="settings-tab-icon-wrap">
                     <svg class="settings-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?php echo $meta['icon']; ?></svg>
@@ -290,7 +301,7 @@ $active_meta = $tab_meta[$tab] ?? $tab_meta['smtp'];
                         <div class="form-group">
                             <label class="checkbox-label">
                                 <input type="checkbox" name="require_payroll_approval" value="1" <?php echo !isset($settings['require_payroll_approval']) || (int) $settings['require_payroll_approval'] === 1 ? 'checked' : ''; ?>>
-                                Require payroll approval before sending slips
+                                Require payroll approval before showing slips in employee portal
                             </label>
                         </div>
                     </div>
@@ -463,6 +474,310 @@ $active_meta = $tab_meta[$tab] ?? $tab_meta['smtp'];
             </div>
             <?php endif; ?>
 
+            <?php if ($tab === 'punch'): ?>
+            <?php require_once 'includes/punch_helper.php'; ?>
+            <form method="POST" action="settings_save.php" class="settings-form">
+                <?php echo csrf_field(); ?>
+                <input type="hidden" name="section" value="punch">
+                <div class="settings-form-section">
+                    <h4>Employee punch</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" name="punch_enabled" value="1" <?php echo ($settings['punch_enabled'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                                Enable punch in / punch out on employee portal
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" name="geo_attendance_enabled" value="1" <?php echo ($settings['geo_attendance_enabled'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                                Require GPS geo-fence for punch
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" name="employee_face_login_enabled" value="1" <?php echo ($settings['employee_face_login_enabled'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                                Allow face recognition login on employee portal
+                            </label>
+                            <span class="form-hint">Employees enroll face after password sign-in · password login always works</span>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Default office latitude</label>
+                            <input type="text" name="office_latitude" placeholder="26.8467" value="<?php echo htmlspecialchars($settings['office_latitude'] ?? ''); ?>">
+                            <span class="form-hint">Used when branch has no own coordinates (Google Maps → right-click → copy lat)</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Default office longitude</label>
+                            <input type="text" name="office_longitude" placeholder="80.9462" value="<?php echo htmlspecialchars($settings['office_longitude'] ?? ''); ?>">
+                        </div>
+                        <div class="form-group">
+                            <label>Geofence radius (metres)</label>
+                            <input type="number" name="geo_fence_radius_meters" min="50" max="5000" step="10" value="<?php echo htmlspecialchars($settings['geo_fence_radius_meters'] ?? '200'); ?>">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-form-section">
+                    <h4>Office timing (late / on-time)</h4>
+                    <p class="form-hint" style="margin-bottom:12px;">Punch in is checked against <strong>start time</strong>; punch out against <strong>end time</strong>. Grace minutes apply to both.</p>
+                    <div class="form-row punch-timing-row">
+                        <div class="form-group">
+                            <label>Office start time</label>
+                            <input type="time" class="form-input-time" name="office_start_time" step="60" value="<?php echo htmlspecialchars(get_office_start_time($settings)); ?>">
+                            <span class="form-hint">Late if punch in after start + grace</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Office end time</label>
+                            <input type="time" class="form-input-time" name="office_end_time" step="60" value="<?php echo htmlspecialchars(get_office_end_time($settings)); ?>">
+                            <span class="form-hint">Early leave if punch out before end − grace</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Grace (minutes)</label>
+                            <input type="number" name="late_grace_minutes" min="0" max="120" step="1" value="<?php echo htmlspecialchars((string) get_late_grace_minutes($settings)); ?>">
+                            <span class="form-hint">Buffer for both punch in and punch out</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-form-section">
+                    <h4>Punch attendance rules</h4>
+                    <p class="form-hint" style="margin-bottom:12px;">How punch in/out affects attendance status. Late + early together always counts as half day.</p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" name="half_day_on_late_in" value="1" <?php echo ($settings['half_day_on_late_in'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                                Half day on late punch in only
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" name="half_day_on_early_out" value="1" <?php echo ($settings['half_day_on_early_out'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                                Half day on early punch out only
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Missing punch out (end of day)</label>
+                            <select name="missing_punch_out_status">
+                                <option value="half_day" <?php echo ($settings['missing_punch_out_status'] ?? 'half_day') === 'half_day' ? 'selected' : ''; ?>>Half day</option>
+                                <option value="absent" <?php echo ($settings['missing_punch_out_status'] ?? '') === 'absent' ? 'selected' : ''; ?>>Absent</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;margin-top:28px;">
+                                <input type="checkbox" name="auto_absent_no_punch" value="1" <?php echo ($settings['auto_absent_no_punch'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                                Auto-mark absent when no punch on working day
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Late count for payroll penalty</label>
+                            <input type="number" name="late_count_for_half_day" min="0" max="31" step="1" value="<?php echo htmlspecialchars($settings['late_count_for_half_day'] ?? '3'); ?>">
+                            <span class="form-hint">0 = disabled. Each N lates deducts one half-day credit from paid days.</span>
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;margin-top:28px;">
+                                <input type="checkbox" name="punch_sync_overtime" value="1" <?php echo ($settings['punch_sync_overtime'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                                Sync overtime from punch work hours
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:8px;margin-top:28px;">
+                                <input type="checkbox" name="block_punch_on_holiday_weekoff" value="1" <?php echo ($settings['block_punch_on_holiday_weekoff'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                                Block punch on holidays and employee week off
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-form-section">
+                    <h4>Branch office locations (optional)</h4>
+                    <p class="form-hint" style="margin-bottom:12px;">Override default coordinates per branch. Leave blank to use default office location above.</p>
+                    <?php foreach ($all_branches as $branch): ?>
+                        <?php
+                        $bstmt = $conn->prepare('SELECT office_latitude, office_longitude, geo_fence_radius_meters, office_start_time, office_end_time, late_grace_minutes FROM branches WHERE id = ?');
+                        $bid = (int) $branch['id'];
+                        $bstmt->bind_param('i', $bid);
+                        $bstmt->execute();
+                        $bgeo = $bstmt->get_result()->fetch_assoc() ?: [];
+                        ?>
+                        <div class="form-row punch-branch-row">
+                            <div class="form-group">
+                                <label><?php echo htmlspecialchars($branch['name']); ?> — Latitude</label>
+                                <input type="text" name="branch_lat[<?php echo $bid; ?>]" value="<?php echo htmlspecialchars($bgeo['office_latitude'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label>Longitude</label>
+                                <input type="text" name="branch_lng[<?php echo $bid; ?>]" value="<?php echo htmlspecialchars($bgeo['office_longitude'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label>Radius (m)</label>
+                                <input type="number" name="branch_radius[<?php echo $bid; ?>]" min="50" max="5000" step="10" value="<?php echo htmlspecialchars($bgeo['geo_fence_radius_meters'] ?? ''); ?>">
+                            </div>
+                        </div>
+                        <div class="form-row punch-branch-row punch-timing-row">
+                            <div class="form-group">
+                                <label><?php echo htmlspecialchars($branch['name']); ?> — Start time</label>
+                                <input type="time" class="form-input-time" name="branch_start[<?php echo $bid; ?>]" step="60" value="<?php echo htmlspecialchars($bgeo['office_start_time'] ?? ''); ?>">
+                                <span class="form-hint">Blank = use global default</span>
+                            </div>
+                            <div class="form-group">
+                                <label>End time</label>
+                                <input type="time" class="form-input-time" name="branch_end[<?php echo $bid; ?>]" step="60" value="<?php echo htmlspecialchars($bgeo['office_end_time'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label>Grace (min)</label>
+                                <input type="number" name="branch_grace[<?php echo $bid; ?>]" min="0" max="120" step="1" value="<?php echo htmlspecialchars($bgeo['late_grace_minutes'] ?? ''); ?>">
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <div class="settings-form-actions">
+                    <button type="submit" class="btn">Save Punch &amp; Geo Settings</button>
+                    <a href="punch_logs.php" class="btn btn-outline">View punch logs</a>
+                    <a href="punch_report.php" class="btn btn-outline">Monthly punch report</a>
+                </div>
+            </form>
+            <?php endif; ?>
+
+            <?php if ($tab === 'branches' && !is_super_admin()): ?>
+                <div class="alert alert-error alert-page">Only Head Office (super admin) can manage branches.</div>
+            <?php elseif ($tab === 'branches'): ?>
+            <?php
+            $branch_rows = get_all_branches_for_admin($conn);
+            $branch_count = count($branch_rows);
+            $active_branch_count = 0;
+            foreach ($branch_rows as $branch_row) {
+                if ((int) ($branch_row['is_active'] ?? 0) === 1) {
+                    $active_branch_count++;
+                }
+            }
+            ?>
+            <div class="settings-tip settings-tip-branches">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <p>Branches are <strong>deactivated</strong>, not permanently deleted. Remove is blocked while employees or branch admins are still assigned.</p>
+            </div>
+            <div class="settings-form settings-branches-panel">
+                <div class="settings-form-section">
+                    <div class="branch-list-section-head">
+                        <div>
+                            <h4>Branches</h4>
+                            <p class="form-hint branch-list-section-hint">
+                                <?php echo $active_branch_count; ?> active
+                                <?php if ($branch_count > $active_branch_count): ?>
+                                    · <?php echo $branch_count - $active_branch_count; ?> inactive
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                        <span class="branch-list-count-badge" aria-hidden="true"><?php echo (int) $branch_count; ?></span>
+                    </div>
+                    <?php if ($branch_rows === []): ?>
+                        <div class="branch-list-empty">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                            <p>No branches found. Add your first office location below.</p>
+                        </div>
+                    <?php else: ?>
+                        <ul class="branch-card-list">
+                            <?php foreach ($branch_rows as $branch):
+                                $bid = (int) $branch['id'];
+                                $emp_count = count_branch_employees($conn, $bid);
+                                $admin_count = count_branch_admin_users($conn, $bid);
+                                $is_active = (int) ($branch['is_active'] ?? 0) === 1;
+                                $can_remove = $is_active && $emp_count === 0 && $admin_count === 0;
+                                $initial = strtoupper(substr((string) ($branch['code'] ?? 'B'), 0, 2));
+                                ?>
+                                <li class="branch-card<?php echo $is_active ? '' : ' is-inactive'; ?>">
+                                    <div class="branch-card-main">
+                                        <span class="branch-card-icon" aria-hidden="true"><?php echo htmlspecialchars($initial); ?></span>
+                                        <div class="branch-card-text">
+                                            <div class="branch-card-title-row">
+                                                <span class="branch-card-name"><?php echo htmlspecialchars($branch['name']); ?></span>
+                                                <?php if ($is_active): ?>
+                                                    <span class="branch-status-badge branch-status-active">Active</span>
+                                                <?php else: ?>
+                                                    <span class="branch-status-badge branch-status-inactive">Inactive</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <span class="branch-card-code"><?php echo htmlspecialchars($branch['code']); ?></span>
+                                            <div class="branch-card-stats">
+                                                <span class="branch-stat-chip<?php echo $emp_count > 0 ? ' has-value' : ''; ?>">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                                                    <?php echo (int) $emp_count; ?> employee<?php echo $emp_count === 1 ? '' : 's'; ?>
+                                                </span>
+                                                <span class="branch-stat-chip<?php echo $admin_count > 0 ? ' has-value' : ''; ?>">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                                    <?php echo (int) $admin_count; ?> admin<?php echo $admin_count === 1 ? '' : 's'; ?>
+                                                </span>
+                                            </div>
+                                            <?php if ($is_active && !$can_remove): ?>
+                                                <p class="branch-card-lock-hint">Reassign employees and admins before removing this branch.</p>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div class="branch-card-actions">
+                                        <?php if ($is_active): ?>
+                                            <form method="POST" action="settings_save.php" class="inline-delete-form" onsubmit="return confirm('Remove branch <?php echo htmlspecialchars($branch['name'], ENT_QUOTES); ?>?');">
+                                                <?php echo csrf_field(); ?>
+                                                <input type="hidden" name="section" value="branch_delete">
+                                                <input type="hidden" name="branch_id" value="<?php echo $bid; ?>">
+                                                <button type="submit" class="btn btn-outline btn-sm btn-danger-outline" <?php echo $can_remove ? '' : 'disabled'; ?>>Remove</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <span class="branch-card-removed-label">Removed</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+                <form method="POST" action="settings_save.php" class="stack-form branch-add-form">
+                    <?php echo csrf_field(); ?>
+                    <input type="hidden" name="section" value="branch_add">
+                    <div class="settings-add-panel settings-add-panel-branch">
+                        <div class="settings-add-panel-head">
+                            <span class="settings-add-panel-icon settings-add-panel-icon-branch" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                            </span>
+                            <div class="settings-add-panel-head-text">
+                                <h4>Add branch</h4>
+                                <p>Create a new office location for employees, holidays, and punch settings.</p>
+                            </div>
+                        </div>
+                        <div class="settings-add-panel-body">
+                            <div class="settings-add-fields settings-add-fields-2">
+                                <div class="settings-add-field">
+                                    <label for="branchCodeInput">Branch code</label>
+                                    <input type="text" id="branchCodeInput" name="branch_code" maxlength="20" pattern="[A-Za-z0-9_-]{2,20}" placeholder="NOIDA" required class="branch-code-input settings-add-input">
+                                    <span class="settings-add-field-hint">2–20 characters · letters, numbers, dash</span>
+                                </div>
+                                <div class="settings-add-field">
+                                    <label for="branchNameInput">Branch name</label>
+                                    <input type="text" id="branchNameInput" name="branch_name" maxlength="100" placeholder="Noida Office" required class="settings-add-input">
+                                    <span class="settings-add-field-hint">Full name shown across the panel</span>
+                                </div>
+                            </div>
+                            <ul class="settings-add-tips">
+                                <li>Employees can be assigned to this branch after it is created.</li>
+                                <li>Configure geo-fence and office timing under <strong>Punch &amp; Geo</strong>.</li>
+                            </ul>
+                        </div>
+                        <div class="settings-add-panel-foot">
+                            <button type="submit" class="btn settings-add-submit">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                                Create branch
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <?php endif; ?>
+
             <?php if ($tab === 'admins' && !is_super_admin()): ?>
                 <div class="alert alert-error alert-page">Only Head Office (super admin) can manage administrator accounts.</div>
             <?php elseif ($tab === 'admins'): ?>
@@ -477,14 +792,14 @@ $active_meta = $tab_meta[$tab] ?? $tab_meta['smtp'];
             ?>
             <div class="settings-tip settings-tip-security settings-tip-admins">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                <p>Each admin can sign in to this panel. You cannot remove your own account while logged in. Use strong passwords and limit access to trusted staff.</p>
+                <p>These are <strong>login accounts</strong> for the admin panel — not office branches. To add or remove a branch (Indra Nagar, Alambagh, etc.), use <a href="settings.php?tab=branches">Settings → Branches</a>.</p>
             </div>
             <div class="settings-form settings-admins-panel">
                 <div class="settings-form-section">
                     <div class="admin-users-section-head">
                         <div>
-                            <h4>Current administrators</h4>
-                            <p class="form-hint admin-users-section-hint"><?php echo $admin_count === 1 ? '1 account with panel access' : $admin_count . ' accounts with panel access'; ?></p>
+                            <h4>Administrator login accounts</h4>
+                            <p class="form-hint admin-users-section-hint">Who can sign in to this panel · <?php echo $admin_count === 1 ? '1 account' : $admin_count . ' accounts'; ?></p>
                         </div>
                         <span class="admin-users-count-badge" aria-hidden="true"><?php echo (int) $admin_count; ?></span>
                     </div>
@@ -509,9 +824,9 @@ $active_meta = $tab_meta[$tab] ?? $tab_meta['smtp'];
                                             if ($is_self) {
                                                 echo 'Signed in as you';
                                             } elseif ($au['branch_id'] === null) {
-                                                echo 'Head Office · All branches';
+                                                echo 'Branch access: Head Office (all branches)';
                                             } else {
-                                                echo htmlspecialchars(get_branch_label($conn, (int) $au['branch_id']));
+                                                echo 'Branch access: ' . htmlspecialchars(get_branch_label($conn, (int) $au['branch_id']));
                                             }
                                         ?></span>
                                     </div>
@@ -538,33 +853,49 @@ $active_meta = $tab_meta[$tab] ?? $tab_meta['smtp'];
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="section" value="admins">
                     <input type="hidden" name="admin_action" value="add">
-                    <div class="settings-form-section settings-form-section-add">
-                        <h4>Add administrator</h4>
-                        <p class="form-hint">Create a new username and password. The user can log in immediately after saving.</p>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Username</label>
-                                <input type="text" name="new_username" required autocomplete="off" placeholder="e.g. indranagar">
-                            </div>
-                            <div class="form-group">
-                                <label>Branch access</label>
-                                <select name="new_branch_id" required>
-                                    <option value="">Select branch</option>
-                                    <option value="0">Head Office (All branches)</option>
-                                    <?php foreach ($all_branches as $branch): ?>
-                                        <option value="<?php echo (int) $branch['id']; ?>"><?php echo htmlspecialchars($branch['name']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Password</label>
-                                <?php render_password_input('new_password', 'required minlength="6" autocomplete="new-password" placeholder="Min. 6 characters"'); ?>
+                    <div class="settings-add-panel settings-add-panel-admin">
+                        <div class="settings-add-panel-head">
+                            <span class="settings-add-panel-icon settings-add-panel-icon-admin" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                            </span>
+                            <div class="settings-add-panel-head-text">
+                                <h4>Add administrator</h4>
+                                <p>Create a login for someone who will access this admin panel — not an employee portal account.</p>
                             </div>
                         </div>
-                        <div class="settings-form-actions">
-                            <button type="submit" class="btn">
+                        <div class="settings-add-panel-body">
+                            <div class="settings-add-fields settings-add-fields-3">
+                                <div class="settings-add-field">
+                                    <label for="newAdminUsername">Username</label>
+                                    <input type="text" id="newAdminUsername" name="new_username" required autocomplete="off" placeholder="e.g. indranagar" class="settings-add-input">
+                                    <span class="settings-add-field-hint">Used at the admin login screen</span>
+                                </div>
+                                <div class="settings-add-field">
+                                    <label for="newAdminBranch">Branch access</label>
+                                    <select id="newAdminBranch" name="new_branch_id" required class="settings-add-input settings-add-select">
+                                        <option value="">Select branch access</option>
+                                        <option value="0">Head Office — all branches</option>
+                                        <?php foreach ($all_branches as $branch): ?>
+                                            <option value="<?php echo (int) $branch['id']; ?>"><?php echo htmlspecialchars($branch['name']); ?> only</option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <span class="settings-add-field-hint">Limits which branch data they can see</span>
+                                </div>
+                                <div class="settings-add-field">
+                                    <label for="pwd_new_password">Password</label>
+                                    <?php render_password_input('new_password', 'required minlength="6" autocomplete="new-password" placeholder="Min. 6 characters"'); ?>
+                                    <span class="settings-add-field-hint">Share securely after creating the account</span>
+                                </div>
+                            </div>
+                            <ul class="settings-add-tips">
+                                <li>This is a <strong>panel login</strong>, separate from employee portal (EMP001) accounts.</li>
+                                <li>Branch admins see only their branch; Head Office sees everything.</li>
+                            </ul>
+                        </div>
+                        <div class="settings-add-panel-foot">
+                            <button type="submit" class="btn settings-add-submit">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-                                Add administrator
+                                Create administrator
                             </button>
                         </div>
                     </div>

@@ -2,6 +2,7 @@
 require __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/../includes/settings_helper.php';
 require_once __DIR__ . '/../includes/attendance_helper.php';
+require_once __DIR__ . '/../includes/punch_helper.php';
 require_once __DIR__ . '/../includes/payroll_extensions.php';
 require_once __DIR__ . '/includes/period.php';
 
@@ -45,6 +46,7 @@ foreach ($leave_requests as $req) {
 }
 
 sync_approved_leave_attendance_for_period($conn, $emp_id, $year, $month);
+sync_employee_punch_attendance_for_period($conn, $emp_id, $year, $month, $settings, $employee);
 $approved_leave_rows = get_approved_leave_records_for_month($conn, $emp_id, $year, $month);
 
 $all_att_stmt = $conn->prepare("
@@ -54,7 +56,7 @@ $all_att_stmt = $conn->prepare("
 ");
 $all_att_stmt->bind_param('sii', $emp_id, $year, $month);
 $all_att_stmt->execute();
-$month_attendance = $all_att_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$month_attendance = payroll_fetch_all_assoc($all_att_stmt->get_result());
 
 $attendance_by_date = [];
 $attendance_detail = [];
@@ -64,7 +66,8 @@ foreach ($month_attendance as $row) {
 }
 $holidays_map = get_holidays_for_month($conn, $year, $month, (int) $employee['branch_id']);
 $roster_weekoff_dates = get_employee_weekoff_dates($conn, $emp_id, $year, $month);
-$attendance_codes = count_calendar_display_codes($year, $month, $attendance_by_date, $roster_weekoff_dates, $holidays_map);
+$punch_half_day_dates = get_employee_punch_half_day_dates_for_period($conn, $emp_id, $year, $month, $settings, $employee);
+$attendance_codes = count_calendar_display_codes($year, $month, $attendance_by_date, $roster_weekoff_dates, $holidays_map, $punch_half_day_dates);
 
 [$prev_month, $prev_year] = get_adjacent_period($month, $year, -1);
 [$next_month, $next_year] = get_adjacent_period($month, $year, 1);
@@ -79,7 +82,7 @@ $default_from = $is_current_month ? date('Y-m-d') : $month_start;
     <div class="emp-page-hero">
         <div class="emp-page-hero-main">
             <p class="page-eyebrow">Leave</p>
-            <h1>Apply for leave</h1>
+            <h2 class="emp-page-hero-title">Balances, apply & track requests</h2>
             <p>Submit a leave request for admin approval. Approved leave will appear on your attendance calendar and monthly record.</p>
         </div>
         <div class="emp-period-nav">
@@ -195,7 +198,7 @@ $default_from = $is_current_month ? date('Y-m-d') : $month_start;
                     </div>
                 </div>
                 <div class="emp-cal-wrap">
-                    <?php echo render_attendance_calendar($year, $month, $attendance_by_date, $today_day, $holidays_map, false, $attendance_detail, $roster_weekoff_dates); ?>
+                    <?php echo render_attendance_calendar($year, $month, $attendance_by_date, $today_day, $holidays_map, false, $attendance_detail, $roster_weekoff_dates, $punch_half_day_dates); ?>
                 </div>
                 <div class="emp-cal-legend-foot">
                     <span class="emp-cal-legend-key">Legend</span>

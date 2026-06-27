@@ -3,7 +3,7 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require_once 'includes/csrf_helper.php';
 require 'config.php';
-require 'includes/settings_helper.php';
+require_once 'includes/settings_helper.php';
 require 'includes/mailer.php';
 
 $settings = get_all_settings($conn);

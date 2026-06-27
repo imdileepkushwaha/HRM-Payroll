@@ -2,6 +2,7 @@
 require __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/../includes/settings_helper.php';
 require_once __DIR__ . '/../includes/attendance_helper.php';
+require_once __DIR__ . '/../includes/punch_helper.php';
 require_once __DIR__ . '/includes/period.php';
 
 $settings = get_all_settings($conn);
@@ -10,6 +11,7 @@ $emp_id = $employee['emp_id'];
 
 $period_label = get_period_label($year, $month);
 sync_approved_leave_attendance_for_period($conn, $emp_id, $year, $month);
+sync_employee_punch_attendance_for_period($conn, $emp_id, $year, $month, $settings, $employee);
 $stats = get_attendance_stats_extended($conn, $emp_id, $year, $month, $settings);
 $holidays_map = get_holidays_for_month($conn, $year, $month, (int) $employee['branch_id']);
 $roster_weekoff_dates = get_employee_weekoff_dates($conn, $emp_id, $year, $month);
@@ -31,7 +33,8 @@ while ($row = $att_result->fetch_assoc()) {
     $attendance_detail[$row['attendance_date']] = $row;
     $month_attendance_rows[] = $row;
 }
-$attendance_codes = count_calendar_display_codes($year, $month, $attendance_by_date, $roster_weekoff_dates, $holidays_map);
+$punch_half_day_dates = get_employee_punch_half_day_dates_for_period($conn, $emp_id, $year, $month, $settings, $employee);
+$attendance_codes = count_calendar_display_codes($year, $month, $attendance_by_date, $roster_weekoff_dates, $holidays_map, $punch_half_day_dates);
 
 $attendance_requests = get_employee_attendance_requests($conn, $emp_id, 15);
 $period_locked = is_payroll_period_locked($conn, $year, $month, (int) $employee['branch_id']);
@@ -59,8 +62,8 @@ $period_query = 'year=' . $year . '&month=' . $month;
     <div class="emp-page-hero">
         <div class="emp-page-hero-main">
             <p class="page-eyebrow">Attendance</p>
-            <h1>My attendance</h1>
-            <p>View your calendar for <strong><?php echo htmlspecialchars($period_label); ?></strong> and submit manual correction requests to your branch admin.</p>
+            <h2 class="emp-page-hero-title">Calendar & correction requests</h2>
+            <p>View your calendar for <strong><?php echo htmlspecialchars($period_label); ?></strong> and submit manual correction requests to your branch admin. <a href="punch_history.php?<?php echo $period_query; ?>">View punch history</a></p>
         </div>
         <div class="emp-period-nav">
             <a href="attendance.php?<?php echo 'year=' . $prev_year . '&month=' . $prev_month; ?>" class="emp-period-nav-btn" aria-label="Previous month">&larr;</a>
@@ -68,6 +71,8 @@ $period_query = 'year=' . $year . '&month=' . $month;
             <a href="attendance.php?<?php echo 'year=' . $next_year . '&month=' . $next_month; ?>" class="emp-period-nav-btn" aria-label="Next month">&rarr;</a>
         </div>
     </div>
+
+    <?php require __DIR__ . '/includes/punch_card.php'; ?>
 
     <div class="emp-page-stats emp-page-stats-4">
         <div class="emp-dash-stat emp-dash-stat-paid">
@@ -160,7 +165,7 @@ $period_query = 'year=' . $year . '&month=' . $month;
                 <?php endif; ?>
             </div>
             <div class="emp-cal-wrap">
-                <?php echo render_attendance_calendar($year, $month, $attendance_by_date, $today_day, $holidays_map, false, $attendance_detail, $roster_weekoff_dates); ?>
+                <?php echo render_attendance_calendar($year, $month, $attendance_by_date, $today_day, $holidays_map, false, $attendance_detail, $roster_weekoff_dates, $punch_half_day_dates); ?>
             </div>
             <div class="emp-cal-legend-foot">
                 <span class="emp-cal-legend-key">Legend</span>

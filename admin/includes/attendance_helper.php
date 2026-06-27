@@ -97,10 +97,11 @@ function count_attendance_codes(array $date_map)
  * Count codes the same way the attendance calendar displays them
  * (includes roster weekoffs when no attendance record overrides the day).
  */
-function count_calendar_display_codes($year, $month, array $attendance_by_date, array $weekoff_dates = [], array $holidays_map = [])
+function count_calendar_display_codes($year, $month, array $attendance_by_date, array $weekoff_dates = [], array $holidays_map = [], array $punch_half_day_dates = [])
 {
     $counts = ['P' => 0, 'A' => 0, 'HD' => 0, 'WO' => 0, 'L' => 0, 'other' => 0];
     $days_in_month = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
+    $punch_half_day_lookup = array_fill_keys($punch_half_day_dates, true);
 
     for ($day = 1; $day <= $days_in_month; $day++) {
         $date_key = sprintf('%d-%02d-%02d', $year, $month, $day);
@@ -109,8 +110,14 @@ function count_calendar_display_codes($year, $month, array $attendance_by_date, 
         $has_record = $raw_status !== null;
         $is_holiday = isset($holidays_map[$date_key]);
         $is_roster_wo = in_array($date_key, $weekoff_dates, true);
+        $is_punch_half_day = isset($punch_half_day_lookup[$date_key]);
 
-        if ($is_holiday && !$has_record) {
+        if ($is_holiday && !$has_record && !$is_punch_half_day) {
+            continue;
+        }
+
+        if ($is_punch_half_day && (!$has_record || $code === 'P')) {
+            $counts['HD']++;
             continue;
         }
 
@@ -141,11 +148,12 @@ function get_adjacent_period($month, $year, $delta_months)
     return [(int) date('n', $ts), (int) date('Y', $ts)];
 }
 
-function render_attendance_calendar($year, $month, array $attendance_by_date, $today_day = 0, array $holidays_map = [], $editable = false, array $attendance_detail = [], array $weekoff_dates = [])
+function render_attendance_calendar($year, $month, array $attendance_by_date, $today_day = 0, array $holidays_map = [], $editable = false, array $attendance_detail = [], array $weekoff_dates = [], array $punch_half_day_dates = [])
 {
     $days_in_month = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
     $calendar_start_dow = (int) date('w', mktime(0, 0, 0, $month, 1, $year));
     $weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    $punch_half_day_lookup = array_fill_keys($punch_half_day_dates, true);
 
     ob_start();
     ?>
@@ -172,6 +180,13 @@ function render_attendance_calendar($year, $month, array $attendance_by_date, $t
                 $has_record = $raw_status !== null;
                 $is_holiday = isset($holidays_map[$date_key]);
                 $is_roster_wo = in_array($date_key, $weekoff_dates, true);
+                $is_punch_half_day = isset($punch_half_day_lookup[$date_key]);
+                $show_punch_half_day = $is_punch_half_day && (!$has_record || $code === 'P');
+                if ($show_punch_half_day) {
+                    $code = 'HD';
+                    $display_code = 'HD';
+                    $has_record = true;
+                }
                 $is_today = ($today_day > 0 && $day === $today_day);
                 $cell_class = 'att-cal-cell';
                 if ($editable) {
@@ -189,13 +204,15 @@ function render_attendance_calendar($year, $month, array $attendance_by_date, $t
                 if (!$has_record) {
                     $cell_class .= ' att-cal-no-record';
                 }
-                $title = $has_record
-                    ? $date_key . ' — ' . attendance_code_label($code)
-                        . ($code === 'L' && !empty($detail['leave_type']) ? ' (' . $detail['leave_type'] . ')' : '')
-                        . ' (' . $raw_status . ')'
-                    : ($is_holiday
-                        ? $date_key . ' — ' . ($holidays_map[$date_key]['name'] ?? 'Holiday')
-                        : ($is_roster_wo ? $date_key . ' — Week off (roster)' : $date_key . ' — No record'));
+                $title = $show_punch_half_day
+                    ? $date_key . ' — Half day (late in & early out)'
+                    : ($has_record
+                        ? $date_key . ' — ' . attendance_code_label($code)
+                            . ($code === 'L' && !empty($detail['leave_type']) ? ' (' . $detail['leave_type'] . ')' : '')
+                            . ($raw_status !== null ? ' (' . $raw_status . ')' : '')
+                        : ($is_holiday
+                            ? $date_key . ' — ' . ($holidays_map[$date_key]['name'] ?? 'Holiday')
+                            : ($is_roster_wo ? $date_key . ' — Week off (roster)' : $date_key . ' — No record')));
                 $data_attrs = '';
                 if ($editable) {
                     $leave_type = $detail['leave_type'] ?? 'CL';

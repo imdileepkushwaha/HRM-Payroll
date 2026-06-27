@@ -5,6 +5,7 @@ function ensure_database_schema($conn)
     $messages = [];
 
     if (payroll_is_mssql()) {
+        ensure_punch_schema($conn);
         seed_default_branches($conn);
         seed_default_leave_types($conn);
         seed_default_settings($conn);
@@ -199,6 +200,55 @@ function ensure_database_schema($conn)
             PRIMARY KEY (`id`),
             UNIQUE KEY `period` (`period_year`, `period_month`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `employee_face_biometrics` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `emp_id` varchar(50) NOT NULL,
+            `face_descriptor` json NOT NULL,
+            `enrolled_at` datetime NOT NULL,
+            `updated_at` datetime DEFAULT NULL,
+            `is_active` tinyint(1) NOT NULL DEFAULT 1,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `emp_id` (`emp_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `employee_document_requests` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `emp_id` varchar(50) NOT NULL,
+            `branch_id` int(11) NOT NULL,
+            `doc_type` varchar(20) NOT NULL,
+            `doc_label` varchar(120) DEFAULT NULL,
+            `file_path` varchar(255) NOT NULL,
+            `original_filename` varchar(255) NOT NULL,
+            `mime_type` varchar(100) NOT NULL,
+            `file_size` int(11) NOT NULL DEFAULT 0,
+            `employee_note` text,
+            `request_status` varchar(20) NOT NULL DEFAULT 'pending',
+            `reviewed_by` varchar(50) DEFAULT NULL,
+            `reviewed_at` datetime DEFAULT NULL,
+            `review_note` text,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `branch_status` (`branch_id`, `request_status`),
+            KEY `emp_status` (`emp_id`, `request_status`),
+            KEY `emp_type_status` (`emp_id`, `doc_type`, `request_status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `employee_documents` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `emp_id` varchar(50) NOT NULL,
+            `doc_type` varchar(20) NOT NULL,
+            `doc_label` varchar(120) DEFAULT NULL,
+            `file_path` varchar(255) NOT NULL,
+            `original_filename` varchar(255) NOT NULL,
+            `mime_type` varchar(100) NOT NULL,
+            `file_size` int(11) NOT NULL DEFAULT 0,
+            `approved_by` varchar(50) DEFAULT NULL,
+            `approved_at` datetime NOT NULL,
+            `request_id` int(11) DEFAULT NULL,
+            `is_active` tinyint(1) NOT NULL DEFAULT 1,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `emp_active` (`emp_id`, `is_active`),
+            KEY `emp_type_active` (`emp_id`, `doc_type`, `is_active`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
     ];
 
     foreach ($tables as $sql) {
@@ -257,6 +307,7 @@ function ensure_database_schema($conn)
 
     seed_default_branches($conn);
     migrate_branch_columns($conn);
+    ensure_punch_schema($conn);
 
     seed_default_leave_types($conn);
     seed_default_settings($conn);
@@ -276,6 +327,194 @@ function seed_default_branches($conn)
         $stmt->bind_param('ss', $b[0], $b[1]);
         $stmt->execute();
     }
+}
+
+function ensure_punch_schema($conn)
+{
+    if (payroll_is_mssql()) {
+        $conn->query("
+            IF OBJECT_ID(N'dbo.employee_punches', N'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.employee_punches (
+                    id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                    emp_id NVARCHAR(50) NOT NULL,
+                    branch_id INT NOT NULL,
+                    punch_type NVARCHAR(10) NOT NULL,
+                    punch_date DATE NOT NULL,
+                    punched_at DATETIME2 NOT NULL CONSTRAINT DF_employee_punches_punched_at DEFAULT GETDATE(),
+                    latitude DECIMAL(10,7) NULL,
+                    longitude DECIMAL(10,7) NULL,
+                    location_accuracy DECIMAL(8,2) NULL,
+                    distance_meters DECIMAL(10,2) NULL,
+                    within_geofence BIT NOT NULL CONSTRAINT DF_employee_punches_within_geofence DEFAULT 0,
+                    geo_required BIT NOT NULL CONSTRAINT DF_employee_punches_geo_required DEFAULT 0,
+                    record_status NVARCHAR(30) NOT NULL CONSTRAINT DF_employee_punches_record_status DEFAULT 'ok'
+                );
+                CREATE INDEX IX_employee_punches_emp_date ON dbo.employee_punches (emp_id, punch_date);
+                CREATE INDEX IX_employee_punches_branch_date ON dbo.employee_punches (branch_id, punch_date);
+            END
+        ");
+    } else {
+        $conn->query("
+            CREATE TABLE IF NOT EXISTS `employee_punches` (
+                `id` int(11) NOT NULL AUTO_INCREMENT,
+                `emp_id` varchar(50) NOT NULL,
+                `branch_id` int(11) NOT NULL,
+                `punch_type` varchar(10) NOT NULL,
+                `punch_date` date NOT NULL,
+                `punched_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `latitude` decimal(10,7) DEFAULT NULL,
+                `longitude` decimal(10,7) DEFAULT NULL,
+                `location_accuracy` decimal(8,2) DEFAULT NULL,
+                `distance_meters` decimal(10,2) DEFAULT NULL,
+                `within_geofence` tinyint(1) NOT NULL DEFAULT 0,
+                `geo_required` tinyint(1) NOT NULL DEFAULT 0,
+                `record_status` varchar(30) NOT NULL DEFAULT 'ok',
+                PRIMARY KEY (`id`),
+                KEY `emp_date` (`emp_id`, `punch_date`),
+                KEY `branch_date` (`branch_id`, `punch_date`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    }
+
+    $branch_geo_columns = [
+        'office_latitude' => 'ALTER TABLE branches ADD COLUMN office_latitude decimal(10,7) DEFAULT NULL',
+        'office_longitude' => 'ALTER TABLE branches ADD COLUMN office_longitude decimal(10,7) DEFAULT NULL',
+        'geo_fence_radius_meters' => 'ALTER TABLE branches ADD COLUMN geo_fence_radius_meters int(11) DEFAULT NULL',
+    ];
+    foreach ($branch_geo_columns as $column => $sql) {
+        if (!column_exists($conn, 'branches', $column)) {
+            $conn->query($sql);
+        }
+    }
+
+    $branch_timing_columns = [
+        'office_start_time' => payroll_is_mssql()
+            ? 'ALTER TABLE branches ADD office_start_time NVARCHAR(5) NULL'
+            : 'ALTER TABLE branches ADD COLUMN office_start_time varchar(5) DEFAULT NULL',
+        'office_end_time' => payroll_is_mssql()
+            ? 'ALTER TABLE branches ADD office_end_time NVARCHAR(5) NULL'
+            : 'ALTER TABLE branches ADD COLUMN office_end_time varchar(5) DEFAULT NULL',
+        'late_grace_minutes' => payroll_is_mssql()
+            ? 'ALTER TABLE branches ADD late_grace_minutes INT NULL'
+            : 'ALTER TABLE branches ADD COLUMN late_grace_minutes int(11) DEFAULT NULL',
+    ];
+    foreach ($branch_timing_columns as $column => $sql) {
+        if (!column_exists($conn, 'branches', $column)) {
+            $conn->query($sql);
+        }
+    }
+
+    $punch_punctuality_columns = [
+        'punctuality_status' => payroll_is_mssql()
+            ? 'ALTER TABLE employee_punches ADD punctuality_status NVARCHAR(20) NULL'
+            : 'ALTER TABLE `employee_punches` ADD COLUMN `punctuality_status` varchar(20) DEFAULT NULL',
+        'late_by_minutes' => payroll_is_mssql()
+            ? 'ALTER TABLE employee_punches ADD late_by_minutes INT NULL'
+            : 'ALTER TABLE `employee_punches` ADD COLUMN `late_by_minutes` int(11) DEFAULT NULL',
+    ];
+    foreach ($punch_punctuality_columns as $column => $sql) {
+        if (!column_exists($conn, 'employee_punches', $column)) {
+            $conn->query($sql);
+        }
+    }
+
+    backfill_punch_punctuality_once($conn);
+    backfill_punch_out_punctuality_once($conn);
+    correct_legacy_punch_timezone_once($conn);
+}
+
+function backfill_punch_out_punctuality_once($conn): void
+{
+    if (!function_exists('get_setting')) {
+        require_once __DIR__ . '/settings_helper.php';
+    }
+    if (get_setting($conn, 'punch_out_punctuality_backfilled', '0') === '1') {
+        return;
+    }
+
+    if (!function_exists('evaluate_punch_out_punctuality')) {
+        require_once __DIR__ . '/punch_helper.php';
+    }
+
+    $settings = get_all_settings($conn);
+    $res = $conn->query("
+        SELECT id, punched_at
+        FROM employee_punches
+        WHERE punch_type = 'out'
+          AND record_status = 'ok'
+          AND punctuality_status IS NULL
+    ");
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $eval = evaluate_punch_out_punctuality($row['punched_at'], $settings);
+            $status = $eval['punctuality_status'];
+            $mins = $eval['late_by_minutes'];
+            $stmt = $conn->prepare('UPDATE employee_punches SET punctuality_status = ?, late_by_minutes = ? WHERE id = ?');
+            $id = (int) $row['id'];
+            $stmt->bind_param('sii', $status, $mins, $id);
+            $stmt->execute();
+        }
+    }
+
+    set_setting($conn, 'punch_out_punctuality_backfilled', '1');
+}
+
+function backfill_punch_punctuality_once($conn): void
+{
+    if (!function_exists('get_setting')) {
+        require_once __DIR__ . '/settings_helper.php';
+    }
+    if (get_setting($conn, 'punch_punctuality_backfilled', '0') === '1') {
+        return;
+    }
+
+    if (!function_exists('evaluate_punch_in_punctuality')) {
+        require_once __DIR__ . '/punch_helper.php';
+    }
+
+    $settings = get_all_settings($conn);
+    $res = $conn->query("
+        SELECT id, punched_at
+        FROM employee_punches
+        WHERE punch_type = 'in'
+          AND record_status = 'ok'
+          AND punctuality_status IS NULL
+    ");
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $eval = evaluate_punch_in_punctuality($row['punched_at'], $settings);
+            $status = $eval['punctuality_status'];
+            $late_mins = $eval['late_by_minutes'];
+            $stmt = $conn->prepare('UPDATE employee_punches SET punctuality_status = ?, late_by_minutes = ? WHERE id = ?');
+            $id = (int) $row['id'];
+            $stmt->bind_param('sii', $status, $late_mins, $id);
+            $stmt->execute();
+        }
+    }
+
+    set_setting($conn, 'punch_punctuality_backfilled', '1');
+}
+
+function correct_legacy_punch_timezone_once($conn): void
+{
+    if (!function_exists('get_setting')) {
+        require_once __DIR__ . '/settings_helper.php';
+    }
+    if (get_setting($conn, 'punch_ist_timezone_fixed', '0') === '1') {
+        return;
+    }
+
+    if (payroll_is_mssql()) {
+        // Older punches were saved with php.ini Europe/Berlin while the office PC runs India time.
+        $conn->query('
+            UPDATE employee_punches
+            SET punched_at = DATEADD(MINUTE, 210, punched_at),
+                punch_date = CAST(DATEADD(MINUTE, 210, punched_at) AS DATE)
+        ');
+    }
+
+    set_setting($conn, 'punch_ist_timezone_fixed', '1');
 }
 
 function migrate_branch_columns($conn)
@@ -444,6 +683,22 @@ function seed_default_settings($conn)
         'leave_quota_cl' => '8',
         'max_leaves_per_month' => '4',
         'max_wo_per_month' => '4',
+        'punch_enabled' => '1',
+        'employee_face_login_enabled' => '1',
+        'geo_attendance_enabled' => '1',
+        'office_latitude' => '',
+        'office_longitude' => '',
+        'geo_fence_radius_meters' => '200',
+        'office_start_time' => '09:30',
+        'office_end_time' => '18:30',
+        'late_grace_minutes' => '10',
+        'half_day_on_late_in' => '1',
+        'half_day_on_early_out' => '1',
+        'missing_punch_out_status' => 'half_day',
+        'auto_absent_no_punch' => '1',
+        'late_count_for_half_day' => '3',
+        'punch_sync_overtime' => '1',
+        'block_punch_on_holiday_weekoff' => '1',
     ];
 
     foreach ($defaults as $key => $value) {

@@ -1,13 +1,14 @@
 <?php
 require 'includes/header.php';
 require 'config.php';
-require 'includes/settings_helper.php';
+require_once 'includes/settings_helper.php';
 require_once 'includes/salary_helper.php';
+require_once 'includes/punch_helper.php';
+require_once 'includes/payroll_extensions.php';
 require 'includes/employee_helper.php';
 require_once 'includes/csrf_helper.php';
 
 $settings = get_all_settings($conn);
-$smtp_ready = is_smtp_configured($settings);
 $branch_filter = branch_employees_sql('e');
 $emp_count_stmt = $conn->prepare('SELECT COUNT(*) as count FROM employees e WHERE 1=1' . $branch_filter['sql']);
 bind_branch_stmt_params($emp_count_stmt, $branch_filter['types'], $branch_filter['params']);
@@ -35,7 +36,9 @@ if ($payroll_year < 2000 || $payroll_year > 2100) {
 }
 
 $payroll_period_label = get_period_label($payroll_year, $payroll_month);
-$slip_status_map = get_slip_send_status_for_period($conn, $payroll_year, $payroll_month);
+$require_slip_approval = !isset($settings['require_payroll_approval']) || (int) $settings['require_payroll_approval'] === 1;
+$payroll_branch_id = get_active_branch_id() ?? payroll_context_branch_id();
+$slips_portal_ready = !$require_slip_approval || can_release_salary_slips_for_period($conn, $payroll_year, $payroll_month, $payroll_branch_id);
 $payroll_rows = [];
 $total_net_payroll = 0.0;
 $employees_with_attendance = 0;
@@ -72,32 +75,17 @@ while ($emp = $employees_result->fetch_assoc()) {
     ];
 }
 
-$slip_eligible_rows = [];
-$slips_sent_count = 0;
-$slips_failed_count = 0;
+$slip_eligible_count = 0;
+$slips_in_portal_count = 0;
 
 foreach ($payroll_rows as $row) {
     $emp = $row['employee'];
-    if (!$row['is_active'] || empty($emp['email']) || (float) $emp['base_salary'] <= 0 || !$row['has_attendance']) {
+    if (!$row['is_active'] || (float) $emp['base_salary'] <= 0 || !$row['has_attendance']) {
         continue;
     }
-    $slip_eligible_rows[] = $row;
-}
-
-foreach ($slip_status_map as $entry) {
-    if (($entry['status'] ?? '') === 'sent') {
-        $slips_sent_count++;
-    } elseif (($entry['status'] ?? '') === 'failed') {
-        $slips_failed_count++;
-    }
-}
-
-$slip_eligible_count = count($slip_eligible_rows);
-$slip_pending_count = 0;
-foreach ($slip_eligible_rows as $row) {
-    $sent_info = $slip_status_map[$row['employee']['emp_id']] ?? null;
-    if (($sent_info['status'] ?? '') !== 'sent') {
-        $slip_pending_count++;
+    $slip_eligible_count++;
+    if (employee_salary_slip_is_available($conn, $emp, $payroll_year, $payroll_month, $settings)) {
+        $slips_in_portal_count++;
     }
 }
 $company_name = $settings['company_name'] ?? 'Company';
@@ -105,6 +93,16 @@ $working_days = (int) get_working_days_per_month($settings);
 $payroll_period = get_payroll_period($conn, $payroll_year, $payroll_month);
 $period_status = $payroll_period['status'] ?? 'open';
 $period_locked = $period_status === 'locked';
+
+$punch_enabled = is_punch_enabled($settings);
+$punch_today = $punch_enabled
+    ? get_branch_punch_day_stats($conn, get_active_branch_id(), date('Y-m-d'))
+    : null;
+$today_year = (int) date('Y');
+$today_month = (int) date('n');
+$punch_logs_today_late_url = 'punch_logs.php?year=' . $today_year . '&month=' . $today_month . '&punctuality=late';
+$punch_logs_today_early_url = 'punch_logs.php?year=' . $today_year . '&month=' . $today_month . '&punctuality=early';
+$punch_logs_today_url = 'punch_logs.php?year=' . $today_year . '&month=' . $today_month;
 
 ?>
 <div class="dashboard-page">
@@ -116,6 +114,7 @@ $period_locked = $period_status === 'locked';
     </div>
     <div class="page-header-actions">
         <a href="employees.php" class="btn btn-outline">Employees</a>
+        <a href="punch_logs.php" class="btn btn-outline">Punch Logs</a>
         <a href="upload_attendance.php" class="btn btn-header">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             Upload Attendance
@@ -130,13 +129,6 @@ $period_locked = $period_status === 'locked';
 <?php endif; ?>
 
 <div class="settings-status dashboard-status">
-    <div class="settings-status-chip <?php echo $smtp_ready ? 'ok' : 'warn'; ?>">
-        <span class="status-dot"></span>
-        <div>
-            <strong><?php echo $smtp_ready ? 'SMTP ready' : 'SMTP not configured'; ?></strong>
-            <span><?php echo $smtp_ready ? 'Email delivery enabled' : 'Set up in Settings → SMTP'; ?></span>
-        </div>
-    </div>
     <div class="settings-status-chip neutral">
         <span class="status-dot"></span>
         <div>
@@ -144,20 +136,35 @@ $period_locked = $period_status === 'locked';
             <span><?php echo (int) $employees_with_attendance; ?> with attendance · <?php echo $working_days; ?> working days</span>
         </div>
     </div>
-    <div class="settings-status-chip <?php echo $slip_eligible_count > 0 && $slips_sent_count >= $slip_eligible_count ? 'ok' : 'neutral'; ?>">
+    <div class="settings-status-chip <?php echo $slip_eligible_count > 0 && $slips_in_portal_count >= $slip_eligible_count ? 'ok' : ($slip_eligible_count > 0 && !$slips_portal_ready ? 'warn' : 'neutral'); ?>">
         <span class="status-dot"></span>
         <div>
-            <strong><?php echo (int) $slips_sent_count; ?> / <?php echo (int) $slip_eligible_count; ?> slips sent</strong>
-            <span><?php echo $slips_failed_count > 0 ? (int) $slips_failed_count . ' failed · ' : ''; ?>Eligible active employees</span>
+            <strong><?php echo (int) $slips_in_portal_count; ?> / <?php echo (int) $slip_eligible_count; ?> slips in portal</strong>
+            <span><?php echo $slips_portal_ready ? 'Visible in employee portal' : 'Approve payroll to release slips'; ?></span>
         </div>
     </div>
     <div class="settings-status-chip <?php echo $period_status === 'approved' || $period_status === 'locked' ? 'ok' : ($period_status === 'review' ? 'warn' : 'neutral'); ?>">
         <span class="status-dot"></span>
         <div>
             <strong>Payroll: <?php echo htmlspecialchars(payroll_period_status_label($period_status)); ?></strong>
-            <span><?php echo $period_locked ? 'Attendance locked' : 'Approve before bulk send'; ?></span>
+            <span><?php echo $period_locked ? 'Attendance locked' : ($require_slip_approval ? 'Approve to show slips in portal' : 'Slips auto-visible when attendance exists'); ?></span>
         </div>
     </div>
+    <?php if ($punch_enabled && $punch_today !== null): ?>
+    <div class="settings-status-chip <?php echo ($punch_today['late_in_count'] + $punch_today['early_out_count']) > 0 ? 'warn' : 'ok'; ?>">
+        <span class="status-dot"></span>
+        <div>
+            <strong>Today: <?php echo (int) $punch_today['late_in_count']; ?> late · <?php echo (int) $punch_today['early_out_count']; ?> early</strong>
+            <span>
+                <?php echo (int) $punch_today['employee_count']; ?> employees punched
+                · <a href="<?php echo htmlspecialchars($punch_logs_today_url); ?>">Punch logs</a>
+                <?php if ($punch_today['late_in_count'] > 0): ?>
+                    · <a href="<?php echo htmlspecialchars($punch_logs_today_late_url); ?>">Late only</a>
+                <?php endif; ?>
+            </span>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <div class="card-container dashboard-stats">
@@ -203,103 +210,11 @@ $period_locked = $period_status === 'locked';
     </div>
 </div>
 
-<div class="dashboard-grid">
-<section class="panel panel-elevated dashboard-send-panel">
-    <div class="dashboard-panel-head">
-        <div class="dashboard-panel-icon send">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-        </div>
-        <div>
-            <h3>Send salary slips</h3>
-            <p>Email PDF payslips to selected employees for the chosen period.</p>
-        </div>
-        <span class="dashboard-panel-badge <?php echo $smtp_ready ? 'ok' : 'warn'; ?>"><?php echo $smtp_ready ? 'SMTP ready' : 'SMTP off'; ?></span>
-    </div>
-    <div class="panel-body padded">
-        <form method="POST" action="send_slips.php" class="slip-form" id="sendSlipsForm">
-            <?php echo csrf_field(); ?>
-            <div class="dashboard-send-controls">
-                <div class="form-row slip-form-row">
-                    <div class="form-group">
-                        <label>Month</label>
-                        <select name="month" id="slipMonth" onchange="window.location.href='dashboard.php?month='+this.value+'&year='+document.getElementById('slipYear').value">
-                            <?php for ($m = 1; $m <= 12; $m++): ?>
-                                <option value="<?php echo $m; ?>" <?php echo $m === $payroll_month ? 'selected' : ''; ?>><?php echo date('F', mktime(0, 0, 0, $m, 1)); ?></option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Year</label>
-                        <select name="year" id="slipYear" onchange="window.location.href='dashboard.php?month='+document.getElementById('slipMonth').value+'&year='+this.value">
-                            <?php for ($y = (int) date('Y'); $y >= (int) date('Y') - 2; $y--): ?>
-                                <option value="<?php echo $y; ?>" <?php echo $y === $payroll_year ? 'selected' : ''; ?>><?php echo $y; ?></option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-                    <div class="form-group form-group-btn">
-                        <label>&nbsp;</label>
-                        <button type="submit" class="btn btn-send-slips" id="sendSlipsBtn" <?php echo $smtp_ready ? '' : 'disabled title="Configure SMTP in Settings"'; ?>>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                            <span class="btn-send-slips-label">Send slips</span>
-                            <span class="btn-send-slips-loader" aria-hidden="true">
-                                <span class="btn-spinner"></span>
-                                Sending…
-                            </span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div id="slipSendStatus" class="slip-send-status" role="status" aria-live="polite" hidden></div>
-            <div class="dashboard-send-options">
-                <label class="slip-select-all-label"><input type="checkbox" name="include_already_sent" value="1"> Include already sent</label>
-                <label class="slip-select-all-label"><input type="checkbox" name="resend_failed_only" value="1"> Resend failed only</label>
-            </div>
-            <div class="slip-select-toolbar">
-                <label class="slip-select-all-label"><input type="checkbox" id="slipSelectAll" checked> Select all pending (<?php echo (int) $slip_pending_count; ?>)</label>
-                <a href="slip_logs.php?month=<?php echo $payroll_month; ?>&year=<?php echo $payroll_year; ?>" class="btn-link">Slip history</a>
-            </div>
-            <?php if ($slip_eligible_count > 0): ?>
-                <div class="slip-recipient-list">
-                    <?php foreach ($slip_eligible_rows as $row):
-                        $emp = $row['employee'];
-                        $sent = $slip_status_map[$emp['emp_id']] ?? null;
-                        $already_sent = ($sent['status'] ?? '') === 'sent';
-                        $initial = strtoupper(substr($emp['name'], 0, 1));
-                        ?>
-                    <label class="slip-recipient-item<?php echo $already_sent ? ' slip-recipient-sent' : ''; ?>"<?php echo $already_sent ? ' hidden' : ''; ?>>
-                        <input type="checkbox" name="emp_ids[]" value="<?php echo htmlspecialchars($emp['emp_id']); ?>"<?php echo $already_sent ? '' : ' checked'; ?>>
-                        <span class="slip-recipient-avatar" aria-hidden="true"><?php echo htmlspecialchars($initial); ?></span>
-                        <span class="slip-recipient-info">
-                            <span class="slip-recipient-name"><?php echo htmlspecialchars($emp['name']); ?></span>
-                            <span class="slip-recipient-meta"><?php echo htmlspecialchars($emp['emp_id']); ?> · ₹<?php echo format_money($row['salary']['net_salary']); ?> net</span>
-                        </span>
-                        <?php if ($sent): ?>
-                            <span class="badge <?php echo $sent['status'] === 'sent' ? 'badge-present' : 'badge-absent'; ?>"><?php echo htmlspecialchars($sent['status']); ?></span>
-                        <?php endif; ?>
-                    </label>
-                    <?php endforeach; ?>
-                </div>
-            <?php else: ?>
-                <div class="dashboard-send-empty">
-                    <p>No eligible employees for <?php echo htmlspecialchars($payroll_period_label); ?>.</p>
-                    <span>Need active staff with email, salary, and attendance.</span>
-                </div>
-            <?php endif; ?>
-            <p class="dashboard-send-hint">Uncheck all boxes to email every eligible employee. Failed sends are logged; others continue.</p>
-        </form>
-        <?php if (!$smtp_ready): ?>
-            <div class="dashboard-inline-alert warn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <p><a href="settings.php?tab=smtp">Configure SMTP</a> before sending.<?php if (PAYROLL_ALLOW_SETUP_TOOLS): ?> Or <a href="seed_demo_data.php">fill demo data</a>.<?php endif; ?></p>
-            </div>
-        <?php endif; ?>
-    </div>
-</section>
-
+<div class="dashboard-grid dashboard-grid-single">
 <aside class="dashboard-aside">
     <div class="dashboard-aside-card">
         <h4>Period filter</h4>
-        <p class="dashboard-aside-desc">Switch month for payroll table and slip list.</p>
+        <p class="dashboard-aside-desc">Switch month for the payroll summary table.</p>
         <form method="GET" action="dashboard.php" class="dashboard-period-form">
             <div class="form-group">
                 <label for="payroll-month">Month</label>
@@ -320,8 +235,40 @@ $period_locked = $period_status === 'locked';
         </form>
     </div>
     <div class="dashboard-aside-card">
+        <h4>Today's punch</h4>
+        <p class="dashboard-aside-desc">Live attendance punch summary for <?php echo htmlspecialchars(date('j M Y')); ?>.</p>
+        <?php if (!$punch_enabled): ?>
+            <p class="form-hint">Punch is disabled. Enable it in <a href="settings.php?tab=punch">Settings → Punch &amp; Geo</a>.</p>
+        <?php else: ?>
+            <div class="dashboard-punch-today-stats">
+                <div class="dashboard-punch-today-stat">
+                    <span>Late in</span>
+                    <strong class="<?php echo $punch_today['late_in_count'] > 0 ? 'is-warn' : ''; ?>"><?php echo (int) $punch_today['late_in_count']; ?></strong>
+                </div>
+                <div class="dashboard-punch-today-stat">
+                    <span>Early out</span>
+                    <strong class="<?php echo $punch_today['early_out_count'] > 0 ? 'is-warn' : ''; ?>"><?php echo (int) $punch_today['early_out_count']; ?></strong>
+                </div>
+                <div class="dashboard-punch-today-stat">
+                    <span>Punched</span>
+                    <strong><?php echo (int) $punch_today['employee_count']; ?></strong>
+                </div>
+                <div class="dashboard-punch-today-stat">
+                    <span>Rejected</span>
+                    <strong class="<?php echo $punch_today['rejected_count'] > 0 ? 'is-warn' : ''; ?>"><?php echo (int) $punch_today['rejected_count']; ?></strong>
+                </div>
+            </div>
+            <div class="dashboard-punch-today-actions">
+                <a href="<?php echo htmlspecialchars($punch_logs_today_url); ?>" class="btn btn-outline btn-sm btn-block">View punch logs</a>
+                <?php if ($punch_today['late_in_count'] > 0): ?>
+                    <a href="<?php echo htmlspecialchars($punch_logs_today_late_url); ?>" class="btn-link">Filter late in today</a>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+    <div class="dashboard-aside-card">
         <h4>Payroll period</h4>
-        <p class="dashboard-aside-desc">Approve or lock this month before sending slips<?php echo get_active_branch_id() === null ? ' for a branch' : ' for ' . htmlspecialchars($active_branch_label); ?>.</p>
+        <p class="dashboard-aside-desc">Approve or lock this month<?php echo get_active_branch_id() === null ? ' for a branch' : ' for ' . htmlspecialchars($active_branch_label); ?>. Employees see slips in their portal after approval.</p>
         <?php if (get_active_branch_id() === null): ?>
             <p class="form-hint">Select <strong>Indra Nagar</strong> or <strong>Alambagh</strong> from the top bar to manage period status.</p>
         <?php else: ?>
@@ -365,7 +312,7 @@ $period_locked = $period_status === 'locked';
                             <th class="col-num">Paid days</th>
                             <th class="col-num">P / HD / L</th>
                             <th class="col-money">Net payable</th>
-                            <th>Slip</th>
+                            <th>Portal</th>
                             <th class="col-action">Actions</th>
                         </tr>
                     </thead>
@@ -408,10 +355,14 @@ $period_locked = $period_status === 'locked';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <?php
-                                    $sent = $slip_status_map[$emp['emp_id']] ?? null;
-                                    if ($sent): ?>
-                                        <span class="badge <?php echo $sent['status'] === 'sent' ? 'badge-present' : 'badge-absent'; ?>"><?php echo htmlspecialchars($sent['status']); ?></span>
+                                    <?php if ($row['has_attendance'] && (float) $emp['base_salary'] > 0): ?>
+                                        <?php if (employee_salary_slip_is_available($conn, $emp, $payroll_year, $payroll_month, $settings)): ?>
+                                            <span class="badge badge-present">In portal</span>
+                                        <?php elseif ($require_slip_approval): ?>
+                                            <span class="badge badge-absent">Awaiting approval</span>
+                                        <?php else: ?>
+                                            <span class="payroll-muted">—</span>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <span class="payroll-muted">—</span>
                                     <?php endif; ?>
@@ -444,7 +395,7 @@ $period_locked = $period_status === 'locked';
                 </table>
             </div>
             <p class="dashboard-payroll-footnote">
-                Net salary uses paid days (P + HD + L credits). <a href="upload_attendance.php">Upload attendance</a> if figures are missing.
+                Net salary uses paid days (P + HD + L credits). Employees view slips in <strong>Employee portal → Salary slips</strong> after payroll is approved. <a href="upload_attendance.php">Upload attendance</a> if figures are missing.
             </p>
         <?php else: ?>
             <div class="empty-state compact dashboard-empty">
@@ -457,131 +408,5 @@ $period_locked = $period_status === 'locked';
 </div>
 
 </div>
-
-<script>
-(function () {
-    var selectAll = document.getElementById('slipSelectAll');
-    var form = document.getElementById('sendSlipsForm');
-    var btn = document.getElementById('sendSlipsBtn');
-    var statusEl = document.getElementById('slipSendStatus');
-    if (!form) return;
-
-    var includeSentCb = form.querySelector('input[name="include_already_sent"]');
-
-    function visibleRecipientItems() {
-        return Array.prototype.filter.call(form.querySelectorAll('.slip-recipient-item'), function (el) {
-            return !el.hidden;
-        });
-    }
-
-    function syncSentVisibility() {
-        var showSent = includeSentCb && includeSentCb.checked;
-        form.querySelectorAll('.slip-recipient-sent').forEach(function (el) {
-            el.hidden = !showSent;
-            if (!showSent) {
-                var cb = el.querySelector('input[type="checkbox"]');
-                if (cb) cb.checked = false;
-            }
-        });
-    }
-
-    if (includeSentCb) {
-        includeSentCb.addEventListener('change', syncSentVisibility);
-    }
-    syncSentVisibility();
-
-    if (selectAll) {
-        selectAll.addEventListener('change', function () {
-            visibleRecipientItems().forEach(function (el) {
-                var cb = el.querySelector('input[type="checkbox"]');
-                if (cb) cb.checked = selectAll.checked;
-            });
-        });
-    }
-
-    function setSending(active) {
-        if (!btn) return;
-        btn.disabled = active;
-        btn.classList.toggle('is-loading', active);
-        btn.setAttribute('aria-busy', active ? 'true' : 'false');
-        form.querySelectorAll('select, input[type="checkbox"]').forEach(function (el) {
-            el.disabled = active;
-        });
-    }
-
-    function showStatus(type, html) {
-        if (!statusEl) return;
-        statusEl.hidden = false;
-        statusEl.className = 'slip-send-status alert alert-' + (type === 'success' ? 'success' : type === 'error' ? 'error' : 'info');
-        statusEl.innerHTML = html;
-        statusEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        if (btn && btn.disabled && btn.classList.contains('is-loading')) return;
-
-        var checked = form.querySelectorAll('input[name="emp_ids[]"]:checked');
-        var formData = new FormData(form);
-        formData.append('ajax', '1');
-        if (checked.length === 0) {
-            form.querySelectorAll('input[name="emp_ids[]"]').forEach(function (cb) {
-                formData.append('emp_ids[]', cb.value);
-            });
-        }
-
-        var count = checked.length || form.querySelectorAll('input[name="emp_ids[]"]').length;
-        setSending(true);
-        showStatus('info', '<strong>Sending salary slips…</strong> Please wait. Emailing <span id="slipSendCount">' + count + '</span> employee(s). Do not close this page.');
-
-        fetch('send_slips.php', {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            credentials: 'same-origin'
-        })
-            .then(function (res) {
-                return res.json().then(function (data) {
-                    if (!res.ok && !data.message) {
-                        throw new Error('Request failed');
-                    }
-                    return data;
-                });
-            })
-            .then(function (data) {
-                setSending(false);
-                var icon = data.success ? '✓' : '⚠';
-                var detail = '';
-                if (data.sent !== undefined) {
-                    detail = '<br><span class="slip-send-meta">' + data.sent + ' sent';
-                    if (data.failed > 0) detail += ', ' + data.failed + ' failed';
-                    detail += ' of ' + data.total + '</span>';
-                }
-                showStatus(data.success ? 'success' : 'error', '<strong>' + icon + ' ' + escapeHtml(data.message) + '</strong>' + detail);
-                if (data.success || (data.sent && data.sent > 0)) {
-                    setTimeout(function () {
-                        var q = 'month=' + encodeURIComponent(data.month || '') + '&year=' + encodeURIComponent(data.year || '') + '&sent=1';
-                        window.location.href = 'dashboard.php?' + q;
-                    }, 2400);
-                }
-            })
-            .catch(function () {
-                setSending(false);
-                showStatus('error', '<strong>Request failed.</strong> Check your connection or SMTP settings and try again.');
-            });
-    });
-
-    function escapeHtml(s) {
-        var d = document.createElement('div');
-        d.textContent = s;
-        return d.innerHTML;
-    }
-
-    if (new URLSearchParams(window.location.search).get('sent') === '1') {
-        var flash = document.querySelector('.alert-page');
-        if (flash) flash.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-})();
-</script>
 
 <?php require 'includes/footer.php'; ?>
