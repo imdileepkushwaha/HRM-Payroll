@@ -10,22 +10,10 @@ if (isset($GLOBALS['pk_db_conn']) && $GLOBALS['pk_db_conn'] instanceof mysqli) {
 }
 
 require_once __DIR__ . '/includes/db_connection.php';
+require_once __DIR__ . '/includes/config_env.php';
 
-define('PAYROLL_DB_DRIVER', 'mysql');
-define('PAYROLL_MYSQL_HOST', '127.0.0.1');
-define('PAYROLL_MYSQL_DATABASE', 'hrm_db');
-define('PAYROLL_MYSQL_USER', 'root');
-define('PAYROLL_MYSQL_PASS', '');
-
-/** Legacy MSSQL source — used only by scripts/migrate_mssql_to_mysql.php */
-define('PAYROLL_MSSQL_SERVER', 'localhost');
-define('PAYROLL_MSSQL_DATABASE', 'payroll_db');
-define('PAYROLL_MSSQL_USER', 'payroll_db');
-define('PAYROLL_MSSQL_PASS', 'OfWwvvtwsF66%*3h');
-
-if (!defined('PAYROLL_ALLOW_SETUP_TOOLS')) {
-    define('PAYROLL_ALLOW_SETUP_TOOLS', true);
-}
+payroll_load_environment_config(__DIR__);
+payroll_apply_config_defaults();
 
 $conn = payroll_open_mysql_connection(
     PAYROLL_MYSQL_HOST,
@@ -35,7 +23,11 @@ $conn = payroll_open_mysql_connection(
 );
 
 if ($conn->connect_error) {
-    die('Connection failed: ' . $conn->connect_error);
+    $env_label = defined('PAYROLL_ENV') ? PAYROLL_ENV : 'unknown';
+    die(
+        'Connection failed (' . $env_label . '): ' . $conn->connect_error
+        . '. Check admin/config/' . $env_label . '.php'
+    );
 }
 
 $conn->set_charset('utf8mb4');

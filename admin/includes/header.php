@@ -21,14 +21,20 @@ $pending_approvals_count = count_pending_approvals_for_branch($conn, get_active_
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="page-panel">
-    <aside class="sidebar">
+    <div class="admin-sidebar-backdrop" id="adminSidebarBackdrop" hidden aria-hidden="true"></div>
+    <aside class="sidebar" id="adminSidebar">
         <div class="sidebar-header">
-            <div class="sidebar-brand">
-                <div class="sidebar-logo">P</div>
-                <div>
-                    <h2>Payroll</h2>
-                    <span>Admin Panel</span>
+            <div class="sidebar-header-row">
+                <div class="sidebar-brand">
+                    <div class="sidebar-logo">P</div>
+                    <div>
+                        <h2>Payroll</h2>
+                        <span>Admin Panel</span>
+                    </div>
                 </div>
+                <button type="button" class="admin-sidebar-close" id="adminSidebarClose" aria-label="Close menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
             </div>
         </div>
         <ul class="sidebar-menu">
@@ -108,6 +114,9 @@ $pending_approvals_count = count_pending_approvals_for_branch($conn, get_active_
     <div class="main-content">
         <header class="topbar">
             <div class="topbar-left">
+                <button type="button" class="admin-sidebar-toggle" id="adminSidebarToggle" aria-label="Open menu" aria-expanded="false" aria-controls="adminSidebar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
                 <span class="topbar-title">Payroll Management System</span>
                 <?php if (is_super_admin() && SHOW_BRANCH_SELECTOR): ?>
                     <form method="GET" action="branch_switch.php" class="branch-switcher">

@@ -8,6 +8,7 @@ require 'includes/employee_helper.php';
 require_once 'includes/attendance_helper.php';
 require_once 'includes/punch_helper.php';
 require_once 'includes/employee_document_helper.php';
+require_once 'includes/face_biometric_helper.php';
 
 $emp_id = trim($_GET['emp_id'] ?? '');
 if ($emp_id === '') {
@@ -40,6 +41,9 @@ $pending_doc_requests = array_values(array_filter(
     get_employee_document_requests($conn, $emp_id, 20),
     static fn($row) => ($row['request_status'] ?? '') === 'pending'
 ));
+$face_login_enabled = employee_face_login_enabled($conn);
+$face_enrollment = get_employee_face_enrollment_meta($conn, $emp_id);
+$has_face_enrolled = $face_enrollment !== null;
 $payroll_profile = get_employee_payroll_profile($conn, $emp_id);
 $payroll_adjustments = get_payroll_adjustments_for_period($conn, $emp_id, $year, $month);
 $adj_bonus_total = (float) ($salary['bonus_total'] ?? 0);
@@ -169,6 +173,11 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
             <span class="ev-readiness-chip <?php echo $has_attendance ? 'ok' : 'warn'; ?>">
                 <?php echo $has_attendance ? $period_label . ' attendance' : 'No attendance this period'; ?>
             </span>
+            <?php if ($face_login_enabled): ?>
+            <span class="ev-readiness-chip <?php echo $has_face_enrolled ? 'ok' : 'warn'; ?>">
+                <?php echo $has_face_enrolled ? 'Face login registered' : 'Face login not set up'; ?>
+            </span>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -246,6 +255,33 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
                     </li>
                     <?php endif; ?>
                 </ul>
+            </div>
+            <?php if ($face_login_enabled): ?>
+            <div class="ev-info-card">
+                <h4 class="ev-info-card-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Employee portal
+                </h4>
+                <ul class="ev-info-list">
+                    <li>
+                        <span class="ev-info-label">Face login</span>
+                        <span class="ev-info-value">
+                            <?php if ($has_face_enrolled): ?>
+                                <span class="ev-face-status ev-face-status-yes">Registered</span>
+                                <span class="ev-face-status-date"><?php echo date('d M Y', strtotime($face_enrollment['enrolled_at'])); ?></span>
+                            <?php else: ?>
+                                <span class="ev-face-status ev-face-status-no">Not registered</span>
+                            <?php endif; ?>
+                        </span>
+                    </li>
+                </ul>
+            </div>
+            <?php endif; ?>
+            <div class="ev-info-card">
+                <h4 class="ev-info-card-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Documents
+                </h4>
                 <div class="ev-documents-sidebar">
                     <p class="ev-slip-history-heading">Verified documents</p>
                     <p class="ev-slip-history-sub"><?php echo count($employee_documents); ?> approved · <?php echo count($pending_doc_requests); ?> pending</p>

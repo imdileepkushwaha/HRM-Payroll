@@ -10,24 +10,11 @@ $is_cli = PHP_SAPI === 'cli';
 
 require_once dirname(__DIR__) . '/includes/db_connection.php';
 require_once dirname(__DIR__) . '/includes/sql_dialect.php';
+require_once dirname(__DIR__) . '/config.php';
 
-if ($is_cli) {
-    if (!defined('PAYROLL_MYSQL_HOST')) {
-        define('PAYROLL_MYSQL_HOST', '127.0.0.1');
-        define('PAYROLL_MYSQL_DATABASE', 'hrm_db');
-        define('PAYROLL_MYSQL_USER', 'root');
-        define('PAYROLL_MYSQL_PASS', '');
-        define('PAYROLL_MSSQL_SERVER', 'localhost');
-        define('PAYROLL_MSSQL_DATABASE', 'payroll_db');
-        define('PAYROLL_MSSQL_USER', '');
-        define('PAYROLL_MSSQL_PASS', '');
-    }
-} else {
-    require_once dirname(__DIR__) . '/config.php';
-    if (!PAYROLL_ALLOW_SETUP_TOOLS) {
-        http_response_code(403);
-        die('Migration is disabled. Set PAYROLL_ALLOW_SETUP_TOOLS to true in config.php.');
-    }
+if (!$is_cli && !PAYROLL_ALLOW_SETUP_TOOLS) {
+    http_response_code(403);
+    die('Migration is disabled. Set PAYROLL_ALLOW_SETUP_TOOLS to true in config/local.php.');
 }
 
 $mssql_server = defined('PAYROLL_MSSQL_SERVER') ? PAYROLL_MSSQL_SERVER : 'localhost';

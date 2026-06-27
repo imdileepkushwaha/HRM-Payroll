@@ -128,6 +128,16 @@ function employee_has_face_enrolled($conn, string $emp_id): bool
     return get_employee_face_descriptor($conn, $emp_id) !== null;
 }
 
+function get_employee_face_enrollment_meta($conn, string $emp_id): ?array
+{
+    $stmt = $conn->prepare(
+        'SELECT enrolled_at, updated_at FROM employee_face_biometrics WHERE emp_id = ? AND is_active = 1 LIMIT 1'
+    );
+    $stmt->bind_param('s', $emp_id);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_assoc() ?: null;
+}
+
 function save_employee_face_descriptor($conn, string $emp_id, array $descriptor): bool
 {
     $json = json_encode($descriptor, JSON_UNESCAPED_UNICODE);
