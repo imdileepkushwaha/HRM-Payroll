@@ -1,6 +1,7 @@
 <?php
 require 'includes/header.php';
 require 'config.php';
+require_once 'includes/csrf_helper.php';
 require_once 'includes/punch_helper.php';
 require_once 'includes/settings_helper.php';
 
@@ -17,6 +18,7 @@ $branch_id = get_active_branch_id();
 $active_branch_label = get_branch_label($conn, $branch_id);
 $period_label = date('F Y', mktime(0, 0, 0, $month, 1, $year));
 $settings = get_all_settings($conn);
+$period_locked = is_payroll_period_locked($conn, $year, $month, $branch_id);
 
 $filter_punctuality = strtolower(trim($_GET['punctuality'] ?? ''));
 $filter_punch_type = strtolower(trim($_GET['punch_type'] ?? ''));
@@ -111,6 +113,18 @@ $filter_query = http_build_query(array_filter([
             </a>
         </div>
     </div>
+
+    <?php if (isset($_SESSION['flash_message'])): ?>
+        <div class="alert <?php echo $_SESSION['flash_success'] ? 'alert-success' : 'alert-error'; ?> alert-page">
+            <?php echo htmlspecialchars($_SESSION['flash_message']); unset($_SESSION['flash_message'], $_SESSION['flash_success']); ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($period_locked): ?>
+        <div class="alert alert-page">
+            <strong>Payroll period locked.</strong> Punch records for <?php echo htmlspecialchars($period_label); ?> cannot be deleted.
+        </div>
+    <?php endif; ?>
 
     <div class="settings-status punch-logs-status">
         <div class="settings-status-chip neutral">
@@ -262,6 +276,7 @@ $filter_query = http_build_query(array_filter([
                                     <th>Status</th>
                                     <th>Distance</th>
                                     <th>Location</th>
+                                    <th class="col-actions">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -332,6 +347,31 @@ $filter_query = http_build_query(array_filter([
                                             <span class="punch-geo-badge punch-geo-in">Inside</span>
                                         <?php else: ?>
                                             <span class="punch-geo-badge punch-geo-out">Outside</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="col-actions">
+                                        <?php if (!$period_locked): ?>
+                                        <form method="POST" action="punch_delete.php" class="action-delete-form" onsubmit="return confirm('Delete this <?php echo $is_in ? 'punch in' : 'punch out'; ?> for <?php echo htmlspecialchars($emp_name, ENT_QUOTES); ?>? Attendance will be recalculated.');">
+                                            <?php echo csrf_field(); ?>
+                                            <input type="hidden" name="punch_id" value="<?php echo (int) ($p['id'] ?? 0); ?>">
+                                            <input type="hidden" name="month" value="<?php echo $month; ?>">
+                                            <input type="hidden" name="year" value="<?php echo $year; ?>">
+                                            <?php if ($filter_punctuality !== ''): ?>
+                                                <input type="hidden" name="punctuality" value="<?php echo htmlspecialchars($filter_punctuality); ?>">
+                                            <?php endif; ?>
+                                            <?php if ($filter_punch_type !== ''): ?>
+                                                <input type="hidden" name="punch_type" value="<?php echo htmlspecialchars($filter_punch_type); ?>">
+                                            <?php endif; ?>
+                                            <?php if ($filter_status !== ''): ?>
+                                                <input type="hidden" name="status" value="<?php echo htmlspecialchars($filter_status); ?>">
+                                            <?php endif; ?>
+                                            <?php if ($filter_emp_id !== ''): ?>
+                                                <input type="hidden" name="emp_id" value="<?php echo htmlspecialchars($filter_emp_id); ?>">
+                                            <?php endif; ?>
+                                            <button type="submit" class="btn btn-outline btn-sm btn-danger-outline" title="Delete punch">Delete</button>
+                                        </form>
+                                        <?php else: ?>
+                                            <span class="text-muted">—</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>

@@ -214,7 +214,7 @@ function ensure_database_schema($conn)
             `id` int(11) NOT NULL AUTO_INCREMENT,
             `emp_id` varchar(50) NOT NULL,
             `branch_id` int(11) NOT NULL,
-            `doc_type` varchar(20) NOT NULL,
+            `doc_type` varchar(40) NOT NULL,
             `doc_label` varchar(120) DEFAULT NULL,
             `file_path` varchar(255) NOT NULL,
             `original_filename` varchar(255) NOT NULL,
@@ -234,7 +234,7 @@ function ensure_database_schema($conn)
         "CREATE TABLE IF NOT EXISTS `employee_documents` (
             `id` int(11) NOT NULL AUTO_INCREMENT,
             `emp_id` varchar(50) NOT NULL,
-            `doc_type` varchar(20) NOT NULL,
+            `doc_type` varchar(40) NOT NULL,
             `doc_label` varchar(120) DEFAULT NULL,
             `file_path` varchar(255) NOT NULL,
             `original_filename` varchar(255) NOT NULL,
@@ -312,6 +312,9 @@ function ensure_database_schema($conn)
     seed_default_leave_types($conn);
     seed_default_settings($conn);
     seed_employee_portal_passwords($conn);
+
+    $conn->query('ALTER TABLE `employee_document_requests` MODIFY COLUMN `doc_type` varchar(40) NOT NULL');
+    $conn->query('ALTER TABLE `employee_documents` MODIFY COLUMN `doc_type` varchar(40) NOT NULL');
 
     return $messages;
 }

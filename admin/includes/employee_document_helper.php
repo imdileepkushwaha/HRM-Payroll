@@ -2,20 +2,120 @@
 
 define('EMPLOYEE_DOCUMENT_MAX_BYTES', 5 * 1024 * 1024);
 
-function employee_document_types(): array
+function employee_document_categories(): array
 {
     return [
-        'aadhar' => 'Aadhar card',
-        'pan' => 'PAN card',
-        'marksheet' => 'Marksheet',
-        'other' => 'Other document',
+        'identity' => [
+            'label' => 'Identity documents',
+            'description' => 'Government ID proofs for verification',
+            'types' => [
+                'aadhar_front' => 'Aadhar card (Front)',
+                'aadhar_back' => 'Aadhar card (Back)',
+                'pan' => 'PAN card',
+                'passport' => 'Passport',
+            ],
+        ],
+        'marksheet' => [
+            'label' => 'Education & marksheets',
+            'description' => 'School, college and degree certificates',
+            'types' => [
+                'ms_10th' => '10th Marksheet',
+                'ms_12th' => '12th Marksheet',
+                'ms_graduation' => 'Graduation Marksheet',
+                'ms_postgrad' => 'Post Graduation Marksheet',
+            ],
+        ],
+        'office' => [
+            'label' => 'Office & employment',
+            'description' => 'Experience, salary and company-related documents',
+            'types' => [
+                'office_experience' => 'Experience letter',
+                'office_relieving' => 'Relieving letter',
+                'office_salary_slip' => 'Salary slip',
+                'office_appointment' => 'Appointment letter',
+                'office_offer' => 'Offer letter',
+                'office_increment' => 'Increment letter',
+                'office_joining' => 'Joining letter',
+                'office_form16' => 'Form 16',
+                'office_resume' => 'Resume / CV',
+                'office_noc' => 'NOC letter',
+                'office_id_card' => 'Company ID card',
+            ],
+        ],
     ];
+}
+
+function employee_uploadable_document_types(): array
+{
+    $types = [];
+    foreach (employee_document_categories() as $category) {
+        foreach ($category['types'] as $key => $label) {
+            $types[$key] = $label;
+        }
+    }
+    return $types;
+}
+
+function employee_document_types(): array
+{
+    $types = employee_uploadable_document_types();
+    $types['aadhar'] = 'Aadhar card';
+    $types['marksheet'] = 'Marksheet';
+    $types['other'] = 'Other document';
+    return $types;
+}
+
+function employee_document_category_keys(string $category_key): array
+{
+    $categories = employee_document_categories();
+    return array_keys($categories[$category_key]['types'] ?? []);
 }
 
 function employee_document_type_label(string $doc_type): string
 {
     $types = employee_document_types();
     return $types[$doc_type] ?? ucfirst(str_replace('_', ' ', $doc_type));
+}
+
+function employee_document_category_key(string $doc_type): string
+{
+    foreach (employee_document_categories() as $cat_key => $category) {
+        if (array_key_exists($doc_type, $category['types'])) {
+            return $cat_key;
+        }
+    }
+    if (in_array($doc_type, ['aadhar', 'pan', 'passport'], true)) {
+        return 'identity';
+    }
+    if ($doc_type === 'marksheet') {
+        return 'marksheet';
+    }
+    return 'other';
+}
+
+function employee_document_category_label(string $doc_type): string
+{
+    $key = employee_document_category_key($doc_type);
+    $categories = employee_document_categories();
+    return $categories[$key]['label'] ?? 'Other';
+}
+
+function employee_document_file_extension(string $filename, string $mime_type = ''): string
+{
+    $ext = strtoupper(pathinfo($filename, PATHINFO_EXTENSION));
+    if ($ext !== '') {
+        return $ext;
+    }
+    if (str_contains($mime_type, 'pdf')) {
+        return 'PDF';
+    }
+    if (str_contains($mime_type, 'png')) {
+        return 'PNG';
+    }
+    if (str_contains($mime_type, 'jpeg') || str_contains($mime_type, 'jpg')) {
+        return 'JPG';
+    }
+    return 'FILE';
 }
 
 function employee_documents_base_dir(): string
@@ -100,7 +200,7 @@ function get_employee_active_document_by_type($conn, string $emp_id, string $doc
     if ($doc_type === 'other') {
         return null;
     }
-    $stmt = $conn->prepare("SELECT * FROM employee_documents WHERE emp_id = ? AND doc_type = ? AND is_active = 1 ORDER BY id DESC LIMIT 1");
+    $stmt = $conn->prepare('SELECT * FROM employee_documents WHERE emp_id = ? AND doc_type = ? AND is_active = 1 ORDER BY id DESC LIMIT 1');
     $stmt->bind_param('ss', $emp_id, $doc_type);
     $stmt->execute();
     return $stmt->get_result()->fetch_assoc() ?: null;
@@ -160,13 +260,13 @@ function create_employee_document_request($conn, string $emp_id, int $branch_id,
 
     $doc_label = trim($doc_label);
     if ($doc_type === 'other' && $doc_label === '') {
-        return ['ok' => false, 'message' => 'Please enter a name for the other document.'];
+        return ['ok' => false, 'message' => 'Please select or enter a document name.'];
     }
     if ($doc_type !== 'other') {
         $doc_label = employee_document_type_label($doc_type);
-        if (employee_has_pending_document_request($conn, $emp_id, $doc_type)) {
-            return ['ok' => false, 'message' => 'You already have a pending ' . employee_document_type_label($doc_type) . ' upload awaiting approval.'];
-        }
+    }
+    if (employee_has_pending_document_request($conn, $emp_id, $doc_type)) {
+        return ['ok' => false, 'message' => 'You already have a pending ' . employee_document_type_label($doc_type) . ' upload awaiting approval.'];
     }
 
     $validation = validate_employee_document_upload($file);

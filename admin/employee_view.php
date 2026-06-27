@@ -283,22 +283,19 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
                     Documents
                 </h4>
                 <div class="ev-documents-sidebar">
-                    <p class="ev-slip-history-heading">Verified documents</p>
-                    <p class="ev-slip-history-sub"><?php echo count($employee_documents); ?> approved · <?php echo count($pending_doc_requests); ?> pending</p>
-                    <?php if ($employee_documents !== []): ?>
-                        <ul class="ev-documents-list">
-                            <?php foreach ($employee_documents as $doc): ?>
-                                <li>
-                                    <div>
-                                        <strong><?php echo htmlspecialchars($doc['doc_label'] ?: employee_document_type_label($doc['doc_type'])); ?></strong>
-                                        <span><?php echo date('d M Y', strtotime($doc['approved_at'])); ?></span>
-                                    </div>
-                                    <a href="employee_document_download.php?doc_id=<?php echo (int) $doc['id']; ?>" target="_blank" rel="noopener">View</a>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
+                    <div class="ev-documents-sidebar-head">
+                        <div>
+                            <p class="ev-slip-history-heading">Verified documents</p>
+                            <p class="ev-slip-history-sub"><?php echo count($employee_documents); ?> approved · <?php echo count($pending_doc_requests); ?> pending</p>
+                        </div>
+                        <?php if ($pending_doc_requests !== []): ?>
+                            <a href="approvals.php" class="ev-documents-sidebar-review">Review pending</a>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($employee_documents === [] && $pending_doc_requests === []): ?>
+                        <p class="ev-slip-history-empty">No documents uploaded yet.</p>
                     <?php else: ?>
-                        <p class="ev-slip-history-empty">No approved documents yet.</p>
+                        <a href="#ev-documents-panel" class="ev-documents-sidebar-link">View all documents →</a>
                     <?php endif; ?>
                 </div>
                 <div class="ev-slip-history">
@@ -338,36 +335,61 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
             </div>
             <?php endif; ?>
 
-            <div class="panel panel-elevated ev-documents-panel">
+            <div class="panel panel-elevated ev-documents-panel" id="ev-documents-panel">
                 <div class="panel-header ev-panel-header-split">
                     <div class="panel-title-group">
                         <h3>Employee documents</h3>
                         <span class="panel-badge"><?php echo count($employee_documents); ?> approved</span>
+                        <?php if ($pending_doc_requests !== []): ?>
+                            <span class="panel-badge panel-badge-warn"><?php echo count($pending_doc_requests); ?> pending</span>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="panel-body padded">
                     <?php if ($employee_documents === [] && $pending_doc_requests === []): ?>
-                        <p class="form-hint" style="margin:0;">No documents uploaded by this employee yet.</p>
+                        <div class="ev-documents-empty">
+                            <span class="ev-documents-empty-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </span>
+                            <p>No documents uploaded by this employee yet.</p>
+                        </div>
                     <?php else: ?>
-                        <div class="ev-documents-admin-grid">
-                            <?php foreach ($employee_documents as $doc): ?>
-                                <article class="ev-document-admin-card">
-                                    <span class="ev-document-admin-type"><?php echo htmlspecialchars(employee_document_type_label($doc['doc_type'])); ?></span>
-                                    <strong><?php echo htmlspecialchars($doc['doc_label'] ?: employee_document_type_label($doc['doc_type'])); ?></strong>
-                                    <span class="ev-document-admin-meta">
-                                        Approved <?php echo date('d M Y', strtotime($doc['approved_at'])); ?>
-                                        · <?php echo htmlspecialchars($doc['approved_by'] ?: 'admin'); ?>
-                                        · <?php echo htmlspecialchars(format_employee_document_size((int) $doc['file_size'])); ?>
-                                    </span>
-                                    <a href="employee_document_download.php?doc_id=<?php echo (int) $doc['id']; ?>" class="btn btn-outline btn-sm" target="_blank" rel="noopener">Open file</a>
+                        <div class="ev-documents-admin-list">
+                            <?php foreach ($employee_documents as $doc):
+                                $doc_cat = employee_document_category_key($doc['doc_type']);
+                                $file_ext = employee_document_file_extension($doc['original_filename'], $doc['mime_type'] ?? '');
+                                $type_label = employee_document_type_label($doc['doc_type']);
+                                ?>
+                                <article class="ev-doc-row ev-doc-row-<?php echo htmlspecialchars($doc_cat); ?>">
+                                    <span class="ev-doc-row-ext ev-doc-row-ext-<?php echo htmlspecialchars(strtolower($file_ext)); ?>"><?php echo htmlspecialchars($file_ext); ?></span>
+                                    <div class="ev-doc-row-info">
+                                        <div class="ev-doc-row-top">
+                                            <strong><?php echo htmlspecialchars($type_label); ?></strong>
+                                            <span class="ev-doc-row-status ev-doc-row-status-approved">Approved</span>
+                                        </div>
+                                        <span class="ev-doc-row-meta"><?php echo date('d M Y', strtotime($doc['approved_at'])); ?> · <?php echo htmlspecialchars(format_employee_document_size((int) $doc['file_size'])); ?> · <?php echo htmlspecialchars($doc['original_filename']); ?></span>
+                                    </div>
+                                    <a href="employee_document_download.php?doc_id=<?php echo (int) $doc['id']; ?>" class="ev-doc-row-action" target="_blank" rel="noopener" title="Open file">Open</a>
                                 </article>
                             <?php endforeach; ?>
-                            <?php foreach ($pending_doc_requests as $req): ?>
-                                <article class="ev-document-admin-card is-pending">
-                                    <span class="ev-document-admin-type">Pending</span>
-                                    <strong><?php echo htmlspecialchars($req['doc_label'] ?: employee_document_type_label($req['doc_type'])); ?></strong>
-                                    <span class="ev-document-admin-meta">Submitted <?php echo date('d M Y, h:i A', strtotime($req['created_at'])); ?></span>
-                                    <a href="employee_document_download.php?request_id=<?php echo (int) $req['id']; ?>" class="btn btn-outline btn-sm" target="_blank" rel="noopener">Preview upload</a>
+                            <?php foreach ($pending_doc_requests as $req):
+                                $doc_cat = employee_document_category_key($req['doc_type']);
+                                $file_ext = employee_document_file_extension($req['original_filename'], $req['mime_type'] ?? '');
+                                $type_label = employee_document_type_label($req['doc_type']);
+                                ?>
+                                <article class="ev-doc-row ev-doc-row-<?php echo htmlspecialchars($doc_cat); ?> is-pending">
+                                    <span class="ev-doc-row-ext ev-doc-row-ext-<?php echo htmlspecialchars(strtolower($file_ext)); ?>"><?php echo htmlspecialchars($file_ext); ?></span>
+                                    <div class="ev-doc-row-info">
+                                        <div class="ev-doc-row-top">
+                                            <strong><?php echo htmlspecialchars($type_label); ?></strong>
+                                            <span class="ev-doc-row-status ev-doc-row-status-pending">Pending</span>
+                                        </div>
+                                        <span class="ev-doc-row-meta"><?php echo date('d M Y, h:i A', strtotime($req['created_at'])); ?> · <?php echo htmlspecialchars(format_employee_document_size((int) $req['file_size'])); ?> · <?php echo htmlspecialchars($req['original_filename']); ?></span>
+                                    </div>
+                                    <div class="ev-doc-row-actions">
+                                        <a href="employee_document_download.php?request_id=<?php echo (int) $req['id']; ?>" class="ev-doc-row-action ev-doc-row-action-muted" target="_blank" rel="noopener">Preview</a>
+                                        <a href="approvals.php" class="ev-doc-row-action ev-doc-row-action-review">Review</a>
+                                    </div>
                                 </article>
                             <?php endforeach; ?>
                         </div>

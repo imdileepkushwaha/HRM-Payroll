@@ -110,8 +110,8 @@ function approvals_employee($conn, $emp_id, &$cache)
                         <h3>Profile update requests</h3>
                         <p class="approvals-panel-desc">Employees request changes to contact and bank details.</p>
                     </div>
-                    <span class="panel-badge"><?php echo count($pending_profile); ?> pending</span>
                 </div>
+                <span class="panel-badge"><?php echo count($pending_profile); ?> pending</span>
             </div>
             <div class="panel-body approvals-panel-body">
                 <?php if ($pending_profile === []): ?>
@@ -194,10 +194,10 @@ function approvals_employee($conn, $emp_id, &$cache)
                     </span>
                     <div>
                         <h3>Document uploads</h3>
-                        <p class="approvals-panel-desc">Employees upload Aadhar, PAN, marksheet and other files for verification.</p>
+                        <p class="approvals-panel-desc">Review ID proofs, marksheets &amp; office documents.</p>
                     </div>
-                    <span class="panel-badge"><?php echo count($pending_documents); ?> pending</span>
                 </div>
+                <span class="panel-badge"><?php echo count($pending_documents); ?> pending</span>
             </div>
             <div class="panel-body approvals-panel-body">
                 <?php if ($pending_documents === []): ?>
@@ -214,8 +214,11 @@ function approvals_employee($conn, $emp_id, &$cache)
                             <?php
                             $emp_initial = strtoupper(substr($req['employee_name'], 0, 1));
                             $doc_label = $req['doc_label'] ?: employee_document_type_label($req['doc_type']);
+                            $doc_cat = employee_document_category_key($req['doc_type']);
+                            $doc_cat_label = employee_document_category_label($req['doc_type']);
+                            $file_ext = employee_document_file_extension($req['original_filename'], $req['mime_type'] ?? '');
                             ?>
-                            <article class="approval-card approval-card-document">
+                            <article class="approval-card approval-card-document approval-card-document-<?php echo htmlspecialchars($doc_cat); ?>">
                                 <header class="approval-card-top">
                                     <div class="approval-card-employee">
                                         <span class="approval-card-avatar" aria-hidden="true"><?php echo htmlspecialchars($emp_initial); ?></span>
@@ -227,13 +230,23 @@ function approvals_employee($conn, $emp_id, &$cache)
                                     <time class="approval-card-time" datetime="<?php echo htmlspecialchars($req['created_at']); ?>"><?php echo date('d M Y, h:i A', strtotime($req['created_at'])); ?></time>
                                 </header>
 
-                                <div class="approval-doc-box">
-                                    <div class="approval-doc-meta">
-                                        <span class="approval-doc-type"><?php echo htmlspecialchars(employee_document_type_label($req['doc_type'])); ?></span>
-                                        <strong><?php echo htmlspecialchars($doc_label); ?></strong>
-                                        <span><?php echo htmlspecialchars($req['original_filename']); ?> · <?php echo htmlspecialchars(format_employee_document_size((int) $req['file_size'])); ?></span>
+                                <div class="approval-doc-preview">
+                                    <div class="approval-doc-file-icon approval-doc-file-icon-<?php echo htmlspecialchars(strtolower($file_ext)); ?>" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        <span class="approval-doc-file-ext"><?php echo htmlspecialchars($file_ext); ?></span>
                                     </div>
-                                    <a href="employee_document_download.php?request_id=<?php echo (int) $req['id']; ?>" class="btn btn-outline btn-sm" target="_blank" rel="noopener">Preview file</a>
+                                    <div class="approval-doc-meta">
+                                        <div class="approval-doc-meta-top">
+                                            <span class="approval-doc-type approval-doc-type-<?php echo htmlspecialchars($doc_cat); ?>"><?php echo htmlspecialchars(employee_document_type_label($req['doc_type'])); ?></span>
+                                            <span class="approval-doc-category"><?php echo htmlspecialchars($doc_cat_label); ?></span>
+                                        </div>
+                                        <strong><?php echo htmlspecialchars($doc_label); ?></strong>
+                                        <span class="approval-doc-fileinfo"><?php echo htmlspecialchars($req['original_filename']); ?> · <?php echo htmlspecialchars(format_employee_document_size((int) $req['file_size'])); ?></span>
+                                    </div>
+                                    <a href="employee_document_download.php?request_id=<?php echo (int) $req['id']; ?>" class="btn btn-outline btn-sm approval-doc-preview-btn" target="_blank" rel="noopener">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        Preview file
+                                    </a>
                                 </div>
 
                                 <?php if (!empty($req['employee_note'])): ?>
@@ -275,8 +288,8 @@ function approvals_employee($conn, $emp_id, &$cache)
                         <h3>Attendance requests</h3>
                         <p class="approvals-panel-desc">Manual attendance marks submitted by employees.</p>
                     </div>
-                    <span class="panel-badge"><?php echo count($pending_attendance); ?> pending</span>
                 </div>
+                <span class="panel-badge"><?php echo count($pending_attendance); ?> pending</span>
             </div>
             <div class="panel-body approvals-panel-body">
                 <?php if ($pending_attendance === []): ?>
@@ -362,8 +375,8 @@ function approvals_employee($conn, $emp_id, &$cache)
                     <h3>Leave applications</h3>
                     <p class="approvals-panel-desc">Pending leave requests — approve to mark attendance.</p>
                 </div>
-                <span class="panel-badge"><?php echo count($pending_leave); ?> pending</span>
             </div>
+            <span class="panel-badge"><?php echo count($pending_leave); ?> pending</span>
         </div>
         <div class="panel-body approvals-panel-body">
             <?php if ($pending_leave === []): ?>

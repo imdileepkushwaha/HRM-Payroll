@@ -178,37 +178,106 @@ $period_query = 'year=' . $year . '&month=' . $month;
                 </div>
             </div>
 
-            <?php if ($month_attendance_rows !== []): ?>
-            <div class="emp-att-month-table-wrap">
-                <h4>Monthly record — <?php echo htmlspecialchars($period_label); ?></h4>
-                <div class="table-wrap">
-                    <table class="emp-req-table emp-att-month-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Day</th>
-                                <th>Status</th>
-                                <th>Leave type</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($month_attendance_rows as $row): ?>
-                                <?php
-                                $code = normalize_attendance_status_code($row['status']);
-                                $code_class = attendance_code_css_class($code);
-                                $display = $code === 'L' ? attendance_leave_display_code($row) : ($code !== '' ? $code : $row['status']);
-                                ?>
-                                <tr>
-                                    <td><?php echo date('d M Y', strtotime($row['attendance_date'])); ?></td>
-                                    <td><?php echo date('l', strtotime($row['attendance_date'])); ?></td>
-                                    <td><span class="att-legend-item <?php echo htmlspecialchars($code_class); ?>"><?php echo htmlspecialchars($display); ?></span></td>
-                                    <td><?php echo !empty($row['leave_type']) ? htmlspecialchars($row['leave_type']) : '—'; ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+            <?php if ($month_attendance_rows !== []):
+                $record_rows = array_reverse($month_attendance_rows);
+                $record_total = count($record_rows);
+                ?>
+            <section class="emp-att-record" aria-labelledby="empAttRecordHeading">
+                <div class="emp-att-record-hero">
+                    <header class="emp-att-record-head">
+                        <div class="emp-att-record-title">
+                            <span class="emp-att-record-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+                            </span>
+                            <div>
+                                <h4 id="empAttRecordHeading">Monthly record</h4>
+                                <p><?php echo htmlspecialchars($period_label); ?> · <?php echo $record_total; ?> logged day<?php echo $record_total === 1 ? '' : 's'; ?></p>
+                            </div>
+                        </div>
+                        <a href="punch_history.php?<?php echo $period_query; ?>" class="emp-att-record-link">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            Punch history
+                        </a>
+                    </header>
+                    <div class="emp-att-record-summary" aria-label="Status breakdown">
+                        <span class="emp-att-record-pill emp-att-record-pill-p"><strong><?php echo (int) $attendance_codes['P']; ?></strong> Present</span>
+                        <span class="emp-att-record-pill emp-att-record-pill-a"><strong><?php echo (int) $attendance_codes['A']; ?></strong> Absent</span>
+                        <span class="emp-att-record-pill emp-att-record-pill-hd"><strong><?php echo (int) $attendance_codes['HD']; ?></strong> Half</span>
+                        <span class="emp-att-record-pill emp-att-record-pill-wo"><strong><?php echo (int) ($attendance_codes['WO'] ?? 0); ?></strong> Off</span>
+                        <span class="emp-att-record-pill emp-att-record-pill-l"><strong><?php echo (int) ($attendance_codes['L'] ?? 0); ?></strong> Leave</span>
+                    </div>
                 </div>
-            </div>
+
+                <div class="emp-att-record-timeline">
+                    <?php foreach ($record_rows as $index => $row):
+                        $row_date = $row['attendance_date'];
+                        $date_ts = strtotime($row_date);
+                        $is_today = ($row_date === date('Y-m-d'));
+                        $is_last = ($index === $record_total - 1);
+                        $code = normalize_attendance_status_code($row['status']);
+                        $code_class = attendance_code_css_class($code);
+                        $code_key = strtolower($code ?: 'unknown');
+                        $display = $code === 'L' ? attendance_leave_display_code($row) : ($code !== '' ? $code : $row['status']);
+                        $status_label = attendance_code_label($code !== '' ? $code : normalize_attendance_status_code($row['status']));
+                        if ($status_label === 'Other' && trim((string) $row['status']) !== '') {
+                            $status_label = $row['status'];
+                        }
+                        $leave_label = trim((string) ($row['leave_type'] ?? ''));
+                        ?>
+                        <article class="emp-att-record-item emp-att-record-item--<?php echo htmlspecialchars($code_key); ?><?php echo $is_today ? ' emp-att-record-item--today' : ''; ?><?php echo $is_last ? ' emp-att-record-item--last' : ''; ?>">
+                            <div class="emp-att-record-rail" aria-hidden="true">
+                                <span class="emp-att-record-dot">
+                                    <?php if ($code === 'P'): ?>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                    <?php elseif ($code === 'A'): ?>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                                    <?php elseif ($code === 'HD'): ?>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                                    <?php elseif ($code === 'WO'): ?>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                    <?php elseif ($code === 'L'): ?>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    <?php else: ?>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    <?php endif; ?>
+                                </span>
+                                <?php if (!$is_last): ?>
+                                    <span class="emp-att-record-line"></span>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="emp-att-record-card">
+                                <div class="emp-att-record-card-accent" aria-hidden="true"></div>
+                                <div class="emp-att-record-card-inner">
+                                    <div class="emp-att-record-card-top">
+                                        <div class="emp-att-record-card-date">
+                                            <time datetime="<?php echo htmlspecialchars($row_date); ?>">
+                                                <span class="emp-att-record-card-day"><?php echo date('D', $date_ts); ?></span>
+                                                <span class="emp-att-record-card-full"><?php echo date('d M Y', $date_ts); ?></span>
+                                            </time>
+                                            <?php if ($is_today): ?>
+                                                <span class="emp-att-record-today-pill">Today</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <span class="emp-att-record-badge att-legend-item <?php echo htmlspecialchars($code_class); ?>"><?php echo htmlspecialchars($display); ?></span>
+                                    </div>
+                                    <div class="emp-att-record-card-body">
+                                        <strong class="emp-att-record-card-status"><?php echo htmlspecialchars($status_label); ?></strong>
+                                        <?php if ($leave_label !== ''): ?>
+                                            <span class="emp-att-record-leave-chip">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                                Leave · <?php echo htmlspecialchars($leave_label); ?>
+                                            </span>
+                                        <?php elseif ($code === 'L'): ?>
+                                            <span class="emp-att-record-card-note">Leave type not set</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
             <?php endif; ?>
         </div>
 

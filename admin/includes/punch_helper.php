@@ -625,4 +625,60 @@ function get_recent_employee_punches(
     return $rows;
 }
 
+function delete_employee_punch_by_id($conn, int $punch_id, ?int $branch_id, array $settings): array
+{
+    if ($punch_id < 1) {
+        return ['ok' => false, 'message' => 'Invalid punch record.'];
+    }
+
+    $stmt = $conn->prepare('SELECT * FROM employee_punches WHERE id = ?');
+    $stmt->bind_param('i', $punch_id);
+    $stmt->execute();
+    $punch = $stmt->get_result()->fetch_assoc();
+
+    if (!$punch) {
+        return ['ok' => false, 'message' => 'Punch record not found.'];
+    }
+
+    if ($branch_id !== null && (int) ($punch['branch_id'] ?? 0) !== $branch_id) {
+        return ['ok' => false, 'message' => 'Punch record is not in the selected branch.'];
+    }
+
+    $parsed = payroll_parse_datetime($punch['punched_at'] ?? null);
+    if ($parsed === null) {
+        return ['ok' => false, 'message' => 'Invalid punch date.'];
+    }
+
+    $punch_year = (int) $parsed->format('Y');
+    $punch_month = (int) $parsed->format('n');
+    $punch_date = $parsed->format('Y-m-d');
+    $punch_branch = (int) ($punch['branch_id'] ?? 1);
+
+    if (is_payroll_period_locked($conn, $punch_year, $punch_month, $punch_branch)) {
+        return ['ok' => false, 'message' => 'Payroll period is locked. Cannot delete punch.'];
+    }
+
+    $emp_id = $punch['emp_id'];
+    $del = $conn->prepare('DELETE FROM employee_punches WHERE id = ?');
+    $del->bind_param('i', $punch_id);
+    if (!$del->execute() || $del->affected_rows < 1) {
+        return ['ok' => false, 'message' => 'Could not delete punch. Please try again.'];
+    }
+
+    $emp_stmt = $conn->prepare('SELECT * FROM employees WHERE emp_id = ?');
+    $emp_stmt->bind_param('s', $emp_id);
+    $emp_stmt->execute();
+    $employee = $emp_stmt->get_result()->fetch_assoc() ?: ['emp_id' => $emp_id, 'branch_id' => $punch_branch];
+
+    sync_employee_punch_attendance_for_date($conn, $emp_id, $punch_date, $settings, $employee);
+
+    $label = ($punch['punch_type'] ?? '') === 'out' ? 'Punch out' : 'Punch in';
+    $time = format_punch_time($punch['punched_at'] ?? null);
+
+    return [
+        'ok' => true,
+        'message' => $label . ' deleted' . ($time !== '—' ? ' (' . $time . ')' : '') . '.',
+    ];
+}
+
 require_once __DIR__ . '/punch_policy_helper.php';
