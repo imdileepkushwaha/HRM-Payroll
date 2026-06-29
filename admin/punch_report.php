@@ -1,6 +1,6 @@
 <?php
-require 'includes/header.php';
-require 'config.php';
+require_once 'includes/admin_page_init.php';
+admin_page_init('attendance');
 require_once 'includes/punch_helper.php';
 require_once 'includes/settings_helper.php';
 require_once 'includes/salary_helper.php';

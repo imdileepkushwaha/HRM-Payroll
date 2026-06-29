@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/salary_helper.php';
 require_once __DIR__ . '/../includes/pdf_slip.php';
 
 require_once __DIR__ . '/../includes/payroll_extensions.php';
+require_once __DIR__ . '/../includes/hrm_modules_helper.php';
 
 $employee = require_logged_in_employee($conn);
 $month = (int) ($_GET['month'] ?? 0);
@@ -26,6 +27,7 @@ if (!employee_salary_slip_is_available($conn, $employee, $year, $month, $setting
 }
 
 $salary = calculate_employee_salary_full($conn, $employee, $year, $month, $settings);
+log_salary_slip_event($conn, $employee['emp_id'], $year, $month, (float) ($salary['net_salary'] ?? 0), $employee['email'] ?? null, 'viewed');
 $pdf = generate_salary_slip_pdf($conn, $employee, $salary, $settings, $year, $month);
 $filename = salary_slip_pdf_filename($employee, $year, $month);
 

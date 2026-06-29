@@ -3,7 +3,10 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require_once 'includes/csrf_helper.php';
 require 'config.php';
-require 'includes/employee_helper.php';
+require_permission('employees');
+require_once 'includes/employee_helper.php';
+require_once 'includes/hrm_modules_helper.php';
+require_once 'includes/audit_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: employees.php');
@@ -26,8 +29,12 @@ if ($action === 'add') {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
-    $department = trim($_POST['department'] ?? '');
-    $designation = trim($_POST['designation'] ?? '');
+    $department_id = ($_POST['department_id'] ?? '') !== '' ? (int) $_POST['department_id'] : null;
+    $designation_id = ($_POST['designation_id'] ?? '') !== '' ? (int) $_POST['designation_id'] : null;
+    $manager_emp_id = trim($_POST['manager_emp_id'] ?? '') ?: null;
+    $masters = resolve_employee_master_fields($conn, $department_id, $designation_id);
+    $department = $masters['department'] !== '' ? $masters['department'] : trim($_POST['department'] ?? '');
+    $designation = $masters['designation'] !== '' ? $masters['designation'] : trim($_POST['designation'] ?? '');
     $base_salary = (float) ($_POST['base_salary'] ?? 0);
     $pan = trim($_POST['pan'] ?? '');
     $bank_account = trim($_POST['bank_account'] ?? '');
@@ -48,16 +55,16 @@ if ($action === 'add') {
 
     if ($joined_date === null) {
         $stmt = $conn->prepare("
-            INSERT INTO employees (emp_id, branch_id, name, email, phone, department, designation, base_salary, pan, bank_account, bank_ifsc, bank_name, grade, esic_no, uan_no, pf_no, joined_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+            INSERT INTO employees (emp_id, branch_id, name, email, phone, department, designation, department_id, designation_id, manager_emp_id, base_salary, pan, bank_account, bank_ifsc, bank_name, grade, esic_no, uan_no, pf_no, joined_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
         ");
-        $stmt->bind_param('sisssssdssssssss', $emp_id, $write_branch_id, $name, $email, $phone, $department, $designation, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $grade, $esic_no, $uan_no, $pf_no);
+        $stmt->bind_param('sisssssiisdssssssss', $emp_id, $write_branch_id, $name, $email, $phone, $department, $designation, $department_id, $designation_id, $manager_emp_id, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $grade, $esic_no, $uan_no, $pf_no);
     } else {
         $stmt = $conn->prepare("
-            INSERT INTO employees (emp_id, branch_id, name, email, phone, department, designation, base_salary, pan, bank_account, bank_ifsc, bank_name, grade, esic_no, uan_no, pf_no, joined_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO employees (emp_id, branch_id, name, email, phone, department, designation, department_id, designation_id, manager_emp_id, base_salary, pan, bank_account, bank_ifsc, bank_name, grade, esic_no, uan_no, pf_no, joined_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->bind_param('sisssssdsssssssss', $emp_id, $write_branch_id, $name, $email, $phone, $department, $designation, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $grade, $esic_no, $uan_no, $pf_no, $joined_date);
+        $stmt->bind_param('sisssssiisdsssssssss', $emp_id, $write_branch_id, $name, $email, $phone, $department, $designation, $department_id, $designation_id, $manager_emp_id, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $grade, $esic_no, $uan_no, $pf_no, $joined_date);
     }
 
     if ($stmt->execute()) {
@@ -65,6 +72,7 @@ if ($action === 'add') {
         $settings = get_all_settings($conn);
         $default_portal_password = $settings['default_employee_portal_password'] ?? 'Emp@123';
         set_employee_portal_password($conn, $emp_id, $default_portal_password);
+        log_admin_action($conn, 'add_employee', 'employee', $emp_id, $name);
         $_SESSION['flash_message'] = 'Employee added successfully. Portal password: ' . $default_portal_password;
         $_SESSION['flash_success'] = true;
     } else {
@@ -81,8 +89,12 @@ if ($action === 'update') {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
-    $department = trim($_POST['department'] ?? '');
-    $designation = trim($_POST['designation'] ?? '');
+    $department_id = ($_POST['department_id'] ?? '') !== '' ? (int) $_POST['department_id'] : null;
+    $designation_id = ($_POST['designation_id'] ?? '') !== '' ? (int) $_POST['designation_id'] : null;
+    $manager_emp_id = trim($_POST['manager_emp_id'] ?? '') ?: null;
+    $masters = resolve_employee_master_fields($conn, $department_id, $designation_id);
+    $department = $masters['department'] !== '' ? $masters['department'] : trim($_POST['department'] ?? '');
+    $designation = $masters['designation'] !== '' ? $masters['designation'] : trim($_POST['designation'] ?? '');
     $base_salary = (float) ($_POST['base_salary'] ?? 0);
     $pan = trim($_POST['pan'] ?? '');
     $bank_account = trim($_POST['bank_account'] ?? '');
@@ -96,19 +108,20 @@ if ($action === 'update') {
 
     if ($joined_date === null) {
         $stmt = $conn->prepare("
-            UPDATE employees SET name=?, email=?, phone=?, department=?, designation=?, base_salary=?, pan=?, bank_account=?, bank_ifsc=?, bank_name=?, grade=?, esic_no=?, uan_no=?, pf_no=?, joined_date=NULL
+            UPDATE employees SET name=?, email=?, phone=?, department=?, designation=?, department_id=?, designation_id=?, manager_emp_id=?, base_salary=?, pan=?, bank_account=?, bank_ifsc=?, bank_name=?, grade=?, esic_no=?, uan_no=?, pf_no=?, joined_date=NULL
             WHERE emp_id=?
         ");
-        $stmt->bind_param('sssssdsssssssss', $name, $email, $phone, $department, $designation, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $grade, $esic_no, $uan_no, $pf_no, $emp_id);
+        $stmt->bind_param('sssssiisdsssssssss', $name, $email, $phone, $department, $designation, $department_id, $designation_id, $manager_emp_id, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $grade, $esic_no, $uan_no, $pf_no, $emp_id);
     } else {
         $stmt = $conn->prepare("
-            UPDATE employees SET name=?, email=?, phone=?, department=?, designation=?, base_salary=?, pan=?, bank_account=?, bank_ifsc=?, bank_name=?, grade=?, esic_no=?, uan_no=?, pf_no=?, joined_date=?
+            UPDATE employees SET name=?, email=?, phone=?, department=?, designation=?, department_id=?, designation_id=?, manager_emp_id=?, base_salary=?, pan=?, bank_account=?, bank_ifsc=?, bank_name=?, grade=?, esic_no=?, uan_no=?, pf_no=?, joined_date=?
             WHERE emp_id=?
         ");
-        $stmt->bind_param('sssssdssssssssss', $name, $email, $phone, $department, $designation, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $grade, $esic_no, $uan_no, $pf_no, $joined_date, $emp_id);
+        $stmt->bind_param('sssssiisdssssssssss', $name, $email, $phone, $department, $designation, $department_id, $designation_id, $manager_emp_id, $base_salary, $pan, $bank_account, $bank_ifsc, $bank_name, $grade, $esic_no, $uan_no, $pf_no, $joined_date, $emp_id);
     }
 
     if ($stmt->execute()) {
+        log_admin_action($conn, 'update_employee', 'employee', $emp_id, $name);
         $_SESSION['flash_message'] = 'Employee updated successfully.';
         $_SESSION['flash_success'] = true;
     } else {

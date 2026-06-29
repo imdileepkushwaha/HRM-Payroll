@@ -1,8 +1,11 @@
 <?php
-require 'includes/header.php';
-require 'config.php';
-require 'includes/employee_helper.php';
+require_once 'includes/admin_page_init.php';
+admin_page_init('employees');
+require_once 'includes/employee_helper.php';
+require_once 'includes/hrm_modules_helper.php';
 
+$branch_id = get_active_branch_id();
+$manager_candidates = get_manager_candidates($conn, $branch_id);
 $filter_status = $_GET['status'] ?? 'all';
 $filter_dept = trim($_GET['dept'] ?? '');
 $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -253,6 +256,7 @@ $email_pct = $active_count > 0 ? round(($with_email_active / $active_count) * 10
                                 'esic_no' => $emp['esic_no'] ?? '',
                                 'uan_no' => $emp['uan_no'] ?? '',
                                 'pf_no' => $emp['pf_no'] ?? '',
+                                'manager_emp_id' => $emp['manager_emp_id'] ?? '',
                             ]), ENT_QUOTES, 'UTF-8'); ?>">
                                 <td>
                                     <div class="cell-employee">
@@ -462,6 +466,18 @@ $email_pct = $active_count > 0 ? round(($with_email_active / $active_count) * 10
                         <input type="date" name="joined_date" id="joined_date">
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="manager_emp_id">Reporting manager</label>
+                        <select name="manager_emp_id" id="manager_emp_id">
+                            <option value="">— None —</option>
+                            <?php foreach ($manager_candidates as $m): ?>
+                                <option value="<?php echo htmlspecialchars($m['emp_id']); ?>"><?php echo htmlspecialchars($m['name'] . ' (' . $m['emp_id'] . ')'); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="form-hint">Optional — also editable from employee profile or org chart</span>
+                    </div>
+                </div>
             </div>
             <div class="modal-section">
                 <h4 class="modal-section-title">Bank &amp; tax (optional)</h4>
@@ -584,6 +600,17 @@ $email_pct = $active_count > 0 ? round(($with_email_active / $active_count) * 10
                         <input type="date" name="joined_date" id="edit_joined_date">
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_manager_emp_id">Reporting manager</label>
+                        <select name="manager_emp_id" id="edit_manager_emp_id">
+                            <option value="">— None —</option>
+                            <?php foreach ($manager_candidates as $m): ?>
+                                <option value="<?php echo htmlspecialchars($m['emp_id']); ?>"><?php echo htmlspecialchars($m['name'] . ' (' . $m['emp_id'] . ')'); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="modal-section">
                 <h4 class="modal-section-title">Bank &amp; tax</h4>
@@ -643,6 +670,17 @@ function openEditEmployee(btn) {
     document.getElementById('edit_esic_no').value = emp.esic_no || '';
     document.getElementById('edit_uan_no').value = emp.uan_no || '';
     document.getElementById('edit_pf_no').value = emp.pf_no || '';
+    var mgrSel = document.getElementById('edit_manager_emp_id');
+    if (mgrSel) {
+        mgrSel.value = emp.manager_emp_id || '';
+        if (emp.manager_emp_id && mgrSel.value !== emp.manager_emp_id) {
+            var opt = document.createElement('option');
+            opt.value = emp.manager_emp_id;
+            opt.textContent = emp.manager_emp_id + ' (inactive)';
+            opt.selected = true;
+            mgrSel.appendChild(opt);
+        }
+    }
     document.getElementById('editEmployeeModal').showModal();
 }
 

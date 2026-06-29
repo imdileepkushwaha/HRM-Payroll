@@ -1,6 +1,6 @@
 <?php
-require 'includes/header.php';
-require 'config.php';
+require_once 'includes/admin_page_init.php';
+admin_page_init('leave');
 require_once 'includes/employee_portal_helper.php';
 require_once 'includes/payroll_extensions.php';
 

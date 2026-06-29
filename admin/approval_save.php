@@ -3,6 +3,7 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require_once 'includes/csrf_helper.php';
 require 'config.php';
+require_permission('approvals');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: approvals.php');

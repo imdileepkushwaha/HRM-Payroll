@@ -19,6 +19,8 @@ $emp_page_title = match ($current_page) {
     'attendance.php' => 'My Attendance',
     'punch_history.php' => 'Punch History',
     'leave.php' => 'Apply Leave',
+    'expenses.php' => 'Expense claims',
+    'performance.php' => 'Performance review',
     'salary_slips.php' => 'My Salary Slips',
     'documents.php' => 'My Documents',
     'details.php' => 'My Details',
@@ -83,6 +85,18 @@ $emp_page_title = match ($current_page) {
                     <a href="leave.php" class="<?php echo $current_page === 'leave.php' ? 'active' : ''; ?>">
                         <svg class="emp-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
                         <span>Apply leave</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="expenses.php" class="<?php echo $current_page === 'expenses.php' ? 'active' : ''; ?>">
+                        <svg class="emp-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                        <span>Expense claims</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="performance.php" class="<?php echo $current_page === 'performance.php' ? 'active' : ''; ?>">
+                        <svg class="emp-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                        <span>Performance review</span>
                     </a>
                 </li>
                 <li class="emp-sidebar-label" aria-hidden="true">Payroll</li>

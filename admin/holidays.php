@@ -5,6 +5,7 @@ require_once 'includes/csrf_helper.php';
 require_once 'includes/settings_helper.php';
 
 enforce_admin_session();
+require_permission('calendar');
 
 $year = (int) ($_REQUEST['year'] ?? date('Y'));
 $filter_month = isset($_REQUEST['month']) ? (int) $_REQUEST['month'] : 0;

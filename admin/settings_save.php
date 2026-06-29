@@ -3,7 +3,9 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require_once 'includes/csrf_helper.php';
 require 'config.php';
+require_permission('settings');
 require_once 'includes/settings_helper.php';
+require_once 'includes/auth_helper.php';
 require 'includes/signature_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -79,6 +81,9 @@ if ($section === 'password') {
 
 if ($section === 'payroll') {
     set_setting($conn, 'company_name', trim($_POST['company_name'] ?? ''));
+    set_setting($conn, 'hr_notify_emails', trim($_POST['hr_notify_emails'] ?? ''));
+    set_setting($conn, 'company_email', trim($_POST['company_email'] ?? ''));
+    set_setting($conn, 'careers_public_enabled', !empty($_POST['careers_public_enabled']) ? '1' : '0');
     set_setting($conn, 'working_days_per_month', trim($_POST['working_days_per_month'] ?? '26'));
     set_setting($conn, 'signature_authority_name', trim($_POST['signature_authority_name'] ?? 'Authorized Signatory'));
     set_setting($conn, 'pct_basic', trim($_POST['pct_basic'] ?? '50'));
@@ -275,19 +280,50 @@ if ($section === 'admins' || $section === 'admin_add') {
             $_SESSION['flash_message'] = 'Username, branch, and password (min 6 characters) are required.';
             $_SESSION['flash_success'] = false;
         } else {
+            $role_id = (int) ($_POST['role_id'] ?? 0);
+            if ($role_id <= 0) {
+                $role_id = admin_role_id_by_code($conn, $new_branch_id === null ? 'super_admin' : 'branch_admin') ?? 0;
+            }
             $hash = password_hash($new_pass, PASSWORD_DEFAULT);
             if ($new_branch_id === null) {
-                $stmt = $conn->prepare('INSERT INTO admin_users (username, password, branch_id) VALUES (?, ?, NULL)');
-                $stmt->bind_param('ss', $new_user, $hash);
+                $stmt = $conn->prepare('INSERT INTO admin_users (username, password, branch_id, role_id) VALUES (?, ?, NULL, ?)');
+                $stmt->bind_param('ssi', $new_user, $hash, $role_id);
             } else {
-                $stmt = $conn->prepare('INSERT INTO admin_users (username, password, branch_id) VALUES (?, ?, ?)');
-                $stmt->bind_param('ssi', $new_user, $hash, $new_branch_id);
+                $stmt = $conn->prepare('INSERT INTO admin_users (username, password, branch_id, role_id) VALUES (?, ?, ?, ?)');
+                $stmt->bind_param('ssii', $new_user, $hash, $new_branch_id, $role_id);
             }
             if ($stmt->execute()) {
                 $_SESSION['flash_message'] = 'Admin user added.';
                 $_SESSION['flash_success'] = true;
             } else {
                 $_SESSION['flash_message'] = 'Could not add user (username may exist).';
+                $_SESSION['flash_success'] = false;
+            }
+        }
+        header('Location: settings.php?tab=admins');
+        exit;
+    }
+
+    if ($action === 'set_role') {
+        $admin_id = (int) ($_POST['admin_id'] ?? 0);
+        $role_id = (int) ($_POST['role_id'] ?? 0);
+        if ($admin_id > 0 && $role_id > 0) {
+            $stmt = $conn->prepare('UPDATE admin_users SET role_id = ? WHERE id = ?');
+            $stmt->bind_param('ii', $role_id, $admin_id);
+            if ($stmt->execute()) {
+                require_once 'includes/audit_helper.php';
+                log_admin_action($conn, 'set_admin_role', 'admin_user', (string) $admin_id, (string) $role_id);
+                $cur_stmt = $conn->prepare('SELECT username FROM admin_users WHERE id = ?');
+                $cur_stmt->bind_param('i', $admin_id);
+                $cur_stmt->execute();
+                $cur_row = $cur_stmt->get_result()->fetch_assoc();
+                if ($cur_row && ($cur_row['username'] ?? '') === ($_SESSION['admin_username'] ?? '')) {
+                    load_admin_role_into_session($conn, $role_id);
+                }
+                $_SESSION['flash_message'] = 'Administrator role updated. Permissions refresh on next page load.';
+                $_SESSION['flash_success'] = true;
+            } else {
+                $_SESSION['flash_message'] = 'Could not update role.';
                 $_SESSION['flash_success'] = false;
             }
         }

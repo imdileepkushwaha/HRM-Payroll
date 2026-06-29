@@ -24,7 +24,7 @@ if ($username === '' || $password === '') {
     exit;
 }
 
-$stmt = $conn->prepare('SELECT id, username, password, branch_id FROM admin_users WHERE username = ?');
+$stmt = $conn->prepare('SELECT id, username, password, branch_id, role_id FROM admin_users WHERE username = ?');
 $stmt->bind_param('s', $username);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -54,6 +54,8 @@ if ($user_branch === null && $selected_branch === BRANCH_FILTER_ALL) {
     $active_branch = BRANCH_FILTER_ALL;
 }
 
-set_admin_session_on_login($row['username'], $user_branch, $active_branch);
+set_admin_session_on_login($row['username'], $user_branch, $active_branch, $row['role_id'] !== null ? (int) $row['role_id'] : null);
+require_once __DIR__ . '/includes/auth_helper.php';
+load_admin_role_into_session($conn, $row['role_id'] !== null ? (int) $row['role_id'] : null);
 header('Location: dashboard.php');
 exit;

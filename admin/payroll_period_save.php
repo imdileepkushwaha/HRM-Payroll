@@ -3,6 +3,7 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require_once 'includes/csrf_helper.php';
 require 'config.php';
+require_permission('payroll');
 require_once 'includes/payroll_extensions.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -23,7 +24,7 @@ if (SHOW_BRANCH_SELECTOR && get_active_branch_id() === null) {
 $action = $_POST['period_action'] ?? '';
 $username = $_SESSION['admin_username'] ?? 'admin';
 $return_to = trim($_POST['return_to'] ?? '');
-$allowed_returns = ['upload_attendance.php', 'employee_view.php', 'holidays.php'];
+$allowed_returns = ['upload_attendance.php', 'employee_view.php', 'holidays.php', 'payroll_center.php'];
 if (in_array($return_to, $allowed_returns, true)) {
     $redirect = $return_to . '?month=' . $month . '&year=' . $year;
 } else {

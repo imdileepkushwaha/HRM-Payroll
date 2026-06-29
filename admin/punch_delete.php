@@ -3,6 +3,7 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require_once 'includes/csrf_helper.php';
 require 'config.php';
+require_permission('attendance');
 require_once 'includes/punch_helper.php';
 require_once 'includes/settings_helper.php';
 

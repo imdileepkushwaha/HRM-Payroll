@@ -36,6 +36,7 @@ require_once __DIR__ . '/includes/schema.php';
 ensure_database_schema($conn);
 require_once __DIR__ . '/includes/payroll_extensions.php';
 require_once __DIR__ . '/includes/branch_helper.php';
+require_once __DIR__ . '/includes/auth_helper.php';
 require_once __DIR__ . '/includes/weekoff_roster_helper.php';
 require_once __DIR__ . '/includes/employee_portal_helper.php';
 

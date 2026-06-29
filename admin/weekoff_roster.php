@@ -6,7 +6,7 @@ require_once 'includes/settings_helper.php';
 require_once 'includes/weekoff_roster_helper.php';
 
 enforce_admin_session();
-
+require_permission('calendar');
 $year = (int) ($_REQUEST['year'] ?? date('Y'));
 $month = (int) ($_REQUEST['month'] ?? date('n'));
 if ($month < 1 || $month > 12) {
@@ -159,26 +159,30 @@ for ($day = 1; $day <= $days_in_month; $day++) {
             <p>Set each employee's weekly off days for <strong><?php echo htmlspecialchars($period_label); ?></strong> at <strong><?php echo htmlspecialchars($active_branch_label === 'All Branches' ? get_branch_label($conn, $branch_for_roster) : $active_branch_label); ?></strong>. Roster days count as paid weekoffs in payroll.</p>
         </div>
         <div class="page-header-actions">
+            <a href="team_calendar.php?year=<?php echo $year; ?>&month=<?php echo $month; ?>" class="btn btn-outline">Team calendar</a>
             <a href="holidays.php?year=<?php echo $year; ?>&month=<?php echo $month; ?>" class="btn btn-outline">Holidays</a>
-            <a href="upload_attendance.php?year=<?php echo $year; ?>&month=<?php echo $month; ?>" class="btn btn-outline">Upload attendance</a>
+            <a href="upload_attendance.php?year=<?php echo $year; ?>&month=<?php echo $month; ?>" class="btn btn-header">Upload attendance</a>
         </div>
     </div>
 
     <?php if (get_active_branch_id() === null): ?>
-        <div class="alert alert-page" style="background:#fff7ed;border-color:#fdba74;color:#9a3412">
-            <strong>Select a branch.</strong> Choose <strong>Indra Nagar</strong> or <strong>Alambagh</strong> from the top bar to edit weekoff roster.
+        <div class="hrm-callout hrm-callout-warn">
+            <strong>Select a branch</strong>
+            <span>Choose <strong>Indra Nagar</strong> or <strong>Alambagh</strong> from the top bar to edit weekoff roster.</span>
         </div>
     <?php endif; ?>
 
     <?php if (!$roster_editable): ?>
-        <div class="alert alert-page" style="background:#eff6ff;border-color:#93c5fd;color:#1e40af">
-            <strong>View only.</strong> Past months cannot be changed. You can set weekoff roster for <?php echo htmlspecialchars($current_period_label); ?> and later months. You are viewing <?php echo htmlspecialchars($period_label); ?>.
+        <div class="hrm-callout hrm-callout-info">
+            <strong>View only</strong>
+            <span>Past months cannot be changed. You can set roster for <?php echo htmlspecialchars($current_period_label); ?> and later. Viewing <?php echo htmlspecialchars($period_label); ?>.</span>
         </div>
     <?php endif; ?>
 
     <?php if ($period_locked): ?>
-        <div class="alert alert-page" style="background:#fef3c7;border-color:#fcd34d;color:#92400e">
-            <strong>Period locked.</strong> Reopen payroll period from Upload Attendance before changing roster.
+        <div class="hrm-callout hrm-callout-warn">
+            <strong>Period locked</strong>
+            <span>Reopen payroll period from Upload Attendance before changing roster.</span>
         </div>
     <?php endif; ?>
 
@@ -187,6 +191,30 @@ for ($day = 1; $day <= $days_in_month; $day++) {
             <?php echo htmlspecialchars($_SESSION['flash_message']); unset($_SESSION['flash_message'], $_SESSION['flash_success']); ?>
         </div>
     <?php endif; ?>
+
+    <div class="weekoff-roster-workflow">
+        <div class="weekoff-roster-workflow-step">
+            <span class="weekoff-roster-workflow-num">1</span>
+            <div>
+                <strong>Pick month</strong>
+                <span>Use arrows or quick actions for <?php echo htmlspecialchars($period_label); ?>.</span>
+            </div>
+        </div>
+        <div class="weekoff-roster-workflow-step">
+            <span class="weekoff-roster-workflow-num">2</span>
+            <div>
+                <strong>Mark weekoffs</strong>
+                <span>One WO per employee per calendar week — click day cells.</span>
+            </div>
+        </div>
+        <div class="weekoff-roster-workflow-step">
+            <span class="weekoff-roster-workflow-num">3</span>
+            <div>
+                <strong>Save roster</strong>
+                <span>Updates paid days and writes Week off in attendance.</span>
+            </div>
+        </div>
+    </div>
 
     <div class="settings-status weekoff-roster-status">
         <div class="settings-status-chip neutral">
@@ -221,16 +249,26 @@ for ($day = 1; $day <= $days_in_month; $day++) {
 
     <div class="weekoff-roster-layout">
         <aside class="weekoff-roster-sidebar">
-            <div class="weekoff-roster-side-card">
-                <h3>Quick actions</h3>
-                <p>Apply common patterns, then fine-tune in the grid.</p>
+            <div class="weekoff-roster-side-card weekoff-roster-actions-card">
+                <div class="weekoff-roster-side-head">
+                    <span class="weekoff-roster-side-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    </span>
+                    <div>
+                        <h3>Quick actions</h3>
+                        <p>Apply a pattern, then fine-tune in the grid.</p>
+                    </div>
+                </div>
                 <form method="POST" class="stack-form weekoff-roster-actions">
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="year" value="<?php echo $year; ?>">
                     <input type="hidden" name="month" value="<?php echo $month; ?>">
                     <?php if ($roster_read_only): ?><fieldset disabled><?php endif; ?>
                     <input type="hidden" name="roster_action" value="copy_prev">
-                    <button type="submit" class="btn btn-outline btn-block" onclick="return confirm('Copy last month roster (same day numbers) for all employees?');">Copy from last month</button>
+                    <button type="submit" class="btn btn-outline btn-block" onclick="return confirm('Copy last month roster (same day numbers) for all employees?');">
+                        <span class="wo-action-btn-label">Copy from last month</span>
+                        <span class="wo-action-btn-hint">Same day numbers as <?php echo htmlspecialchars(get_period_label($prev_year, $prev_month)); ?></span>
+                    </button>
                     <?php if ($roster_read_only): ?></fieldset><?php endif; ?>
                 </form>
                 <form method="POST" class="stack-form weekoff-roster-actions">
@@ -239,32 +277,49 @@ for ($day = 1; $day <= $days_in_month; $day++) {
                     <input type="hidden" name="month" value="<?php echo $month; ?>">
                     <?php if ($roster_read_only): ?><fieldset disabled><?php endif; ?>
                     <input type="hidden" name="roster_action" value="apply_sundays">
-                    <button type="submit" class="btn btn-outline btn-block" onclick="return confirm('Add all Sundays as weekoffs for every employee? Existing selections are kept.');">Add all Sundays</button>
+                    <button type="submit" class="btn btn-outline btn-block" onclick="return confirm('Add all Sundays as weekoffs for every employee? Existing selections are kept.');">
+                        <span class="wo-action-btn-label">Add all Sundays</span>
+                        <span class="wo-action-btn-hint">Every Sunday as WO for all employees</span>
+                    </button>
                     <?php if ($roster_read_only): ?></fieldset><?php endif; ?>
                 </form>
             </div>
             <div class="weekoff-roster-side-card weekoff-roster-tip">
+                <span class="weekoff-roster-tip-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </span>
                 <strong>How it works</strong>
-                <p>Click day cells to toggle <span class="att-cal-code att-code-wo inline-code">WO</span>. Each employee can have <strong>one weekoff per calendar week</strong>. Save updates payroll paid days and writes <em>Week off</em> in attendance (unless another status exists).</p>
-                <p>Excel upload <strong>WO</strong> codes are also saved as Week off.</p>
+                <p>Click day cells to toggle <span class="att-cal-code att-code-wo inline-code">WO</span>. Each employee gets <strong>one weekoff per calendar week</strong>. Save syncs payroll paid days and attendance.</p>
+                <p class="weekoff-roster-tip-note">Excel upload <strong>WO</strong> codes are also saved as Week off.</p>
             </div>
         </aside>
 
         <div class="weekoff-roster-main">
             <div class="panel panel-elevated weekoff-roster-panel">
                 <div class="panel-header weekoff-roster-panel-head">
-                    <div class="holidays-period-nav">
-                        <a href="weekoff_roster.php?year=<?php echo $prev_year; ?>&month=<?php echo $prev_month; ?>" class="btn btn-sm btn-outline" aria-label="Previous month">&larr;</a>
-                        <span class="holidays-period-label"><?php echo htmlspecialchars($period_label); ?></span>
-                        <a href="weekoff_roster.php?year=<?php echo $next_year; ?>&month=<?php echo $next_month; ?>" class="btn btn-sm btn-outline" aria-label="Next month">&rarr;</a>
+                    <div class="hrm-period-nav">
+                        <a href="weekoff_roster.php?year=<?php echo $prev_year; ?>&month=<?php echo $prev_month; ?>" class="hrm-period-nav-btn" aria-label="Previous month">&larr;</a>
+                        <div class="hrm-period-nav-center">
+                            <strong><?php echo htmlspecialchars($period_label); ?></strong>
+                            <span><?php echo count($employee_rows); ?> employees · <?php echo $total_wo_days; ?> WO days</span>
+                        </div>
+                        <a href="weekoff_roster.php?year=<?php echo $next_year; ?>&month=<?php echo $next_month; ?>" class="hrm-period-nav-btn" aria-label="Next month">&rarr;</a>
                     </div>
-                    <?php if (!$roster_read_only): ?>
-                        <button type="submit" form="weekoffRosterForm" class="btn btn-sm">Save roster</button>
-                    <?php endif; ?>
+                    <div class="weekoff-roster-panel-actions">
+                        <?php if ($roster_read_only): ?>
+                            <span class="weekoff-roster-readonly-pill">Read only</span>
+                        <?php else: ?>
+                            <button type="submit" form="weekoffRosterForm" class="btn btn-sm">Save roster</button>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div class="panel-body weekoff-roster-panel-body">
                     <?php if ($employee_rows === []): ?>
-                        <p class="weekoff-roster-empty">No active employees in this branch. <a href="employees.php">Add employees</a> first.</p>
+                        <div class="empty-state compact weekoff-roster-empty">
+                            <h4>No active employees</h4>
+                            <p>Add employees in this branch to set weekoff roster.</p>
+                            <a href="employees.php" class="btn btn-sm">Manage employees</a>
+                        </div>
                     <?php else: ?>
                         <form method="POST" id="weekoffRosterForm" class="weekoff-roster-form">
                             <?php echo csrf_field(); ?>

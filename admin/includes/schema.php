@@ -249,6 +249,203 @@ function ensure_database_schema($conn)
             KEY `emp_active` (`emp_id`, `is_active`),
             KEY `emp_type_active` (`emp_id`, `doc_type`, `is_active`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `announcements` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `branch_id` int(11) DEFAULT NULL,
+            `title` varchar(200) NOT NULL,
+            `body` text NOT NULL,
+            `is_active` tinyint(1) NOT NULL DEFAULT 1,
+            `is_pinned` tinyint(1) NOT NULL DEFAULT 0,
+            `expires_at` date DEFAULT NULL,
+            `created_by` varchar(50) DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `branch_active` (`branch_id`, `is_active`),
+            KEY `expires` (`expires_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `departments` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `code` varchar(20) NOT NULL,
+            `name` varchar(100) NOT NULL,
+            `branch_id` int(11) DEFAULT NULL,
+            `is_active` tinyint(1) NOT NULL DEFAULT 1,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `dept_code_branch` (`code`, `branch_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `designations` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `department_id` int(11) DEFAULT NULL,
+            `code` varchar(20) NOT NULL,
+            `name` varchar(100) NOT NULL,
+            `is_active` tinyint(1) NOT NULL DEFAULT 1,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `desig_code_dept` (`code`, `department_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `admin_roles` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `code` varchar(40) NOT NULL,
+            `name` varchar(80) NOT NULL,
+            `description` varchar(255) DEFAULT NULL,
+            `is_system` tinyint(1) NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `code` (`code`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `admin_role_permissions` (
+            `role_id` int(11) NOT NULL,
+            `permission_key` varchar(60) NOT NULL,
+            PRIMARY KEY (`role_id`, `permission_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `job_openings` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `branch_id` int(11) NOT NULL,
+            `title` varchar(150) NOT NULL,
+            `department_id` int(11) DEFAULT NULL,
+            `designation_id` int(11) DEFAULT NULL,
+            `description` text,
+            `openings_count` int(11) NOT NULL DEFAULT 1,
+            `status` varchar(20) NOT NULL DEFAULT 'open',
+            `created_by` varchar(50) DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `branch_status` (`branch_id`, `status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `candidates` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `job_opening_id` int(11) NOT NULL,
+            `name` varchar(100) NOT NULL,
+            `email` varchar(150) DEFAULT NULL,
+            `phone` varchar(30) DEFAULT NULL,
+            `resume_path` varchar(255) DEFAULT NULL,
+            `resume_filename` varchar(255) DEFAULT NULL,
+            `stage` varchar(30) NOT NULL DEFAULT 'applied',
+            `notes` text,
+            `hired_emp_id` varchar(50) DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `job_stage` (`job_opening_id`, `stage`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `review_cycles` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `name` varchar(120) NOT NULL,
+            `period_start` date NOT NULL,
+            `period_end` date NOT NULL,
+            `status` varchar(20) NOT NULL DEFAULT 'draft',
+            `created_by` varchar(50) DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `performance_reviews` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `cycle_id` int(11) NOT NULL,
+            `emp_id` varchar(50) NOT NULL,
+            `reviewer_emp_id` varchar(50) DEFAULT NULL,
+            `kra_summary` text,
+            `kpi_data` json DEFAULT NULL,
+            `employee_self_notes` text,
+            `manager_notes` text,
+            `overall_rating` decimal(4,2) DEFAULT NULL,
+            `status` varchar(30) NOT NULL DEFAULT 'pending',
+            `reviewed_at` datetime DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `cycle_emp` (`cycle_id`, `emp_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `expense_claims` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `emp_id` varchar(50) NOT NULL,
+            `branch_id` int(11) NOT NULL,
+            `claim_date` date NOT NULL,
+            `category` varchar(60) NOT NULL,
+            `amount` decimal(12,2) NOT NULL,
+            `description` text,
+            `receipt_path` varchar(255) DEFAULT NULL,
+            `receipt_filename` varchar(255) DEFAULT NULL,
+            `request_status` varchar(20) NOT NULL DEFAULT 'pending',
+            `reviewed_by` varchar(50) DEFAULT NULL,
+            `reviewed_at` datetime DEFAULT NULL,
+            `review_note` text,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `branch_status` (`branch_id`, `request_status`),
+            KEY `emp_status` (`emp_id`, `request_status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `assets` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `asset_tag` varchar(40) NOT NULL,
+            `name` varchar(120) NOT NULL,
+            `category` varchar(60) NOT NULL DEFAULT 'General',
+            `serial_no` varchar(80) DEFAULT NULL,
+            `branch_id` int(11) NOT NULL,
+            `purchase_date` date DEFAULT NULL,
+            `asset_value` decimal(12,2) DEFAULT NULL,
+            `status` varchar(20) NOT NULL DEFAULT 'available',
+            `notes` text,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `asset_tag` (`asset_tag`),
+            KEY `branch_status` (`branch_id`, `status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `asset_assignments` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `asset_id` int(11) NOT NULL,
+            `emp_id` varchar(50) NOT NULL,
+            `assigned_at` datetime NOT NULL,
+            `returned_at` datetime DEFAULT NULL,
+            `condition_notes` text,
+            `assigned_by` varchar(50) DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `asset_active` (`asset_id`, `returned_at`),
+            KEY `emp_active` (`emp_id`, `returned_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `employee_exits` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `emp_id` varchar(50) NOT NULL,
+            `branch_id` int(11) NOT NULL,
+            `exit_type` varchar(30) NOT NULL DEFAULT 'resignation',
+            `resignation_date` date DEFAULT NULL,
+            `last_working_day` date NOT NULL,
+            `reason` text,
+            `status` varchar(30) NOT NULL DEFAULT 'initiated',
+            `initiated_by` varchar(50) DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `emp_status` (`emp_id`, `status`),
+            KEY `branch_status` (`branch_id`, `status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `fnf_settlements` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `exit_id` int(11) NOT NULL,
+            `salary_due` decimal(12,2) NOT NULL DEFAULT 0.00,
+            `leave_encashment` decimal(12,2) NOT NULL DEFAULT 0.00,
+            `notice_pay` decimal(12,2) NOT NULL DEFAULT 0.00,
+            `deductions` decimal(12,2) NOT NULL DEFAULT 0.00,
+            `net_payable` decimal(12,2) NOT NULL DEFAULT 0.00,
+            `status` varchar(20) NOT NULL DEFAULT 'draft',
+            `notes` text,
+            `approved_by` varchar(50) DEFAULT NULL,
+            `approved_at` datetime DEFAULT NULL,
+            `paid_at` datetime DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `exit_id` (`exit_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `admin_audit_log` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `admin_username` varchar(50) NOT NULL,
+            `action` varchar(80) NOT NULL,
+            `entity_type` varchar(40) DEFAULT NULL,
+            `entity_id` varchar(80) DEFAULT NULL,
+            `detail` text,
+            `ip_address` varchar(45) DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `entity_type` (`entity_type`),
+            KEY `created_at` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
     ];
 
     foreach ($tables as $sql) {
@@ -272,6 +469,9 @@ function ensure_database_schema($conn)
         'esic_no' => "ALTER TABLE `employees` ADD COLUMN `esic_no` varchar(50) DEFAULT NULL",
         'uan_no' => "ALTER TABLE `employees` ADD COLUMN `uan_no` varchar(50) DEFAULT NULL",
         'pf_no' => "ALTER TABLE `employees` ADD COLUMN `pf_no` varchar(50) DEFAULT NULL",
+        'department_id' => "ALTER TABLE `employees` ADD COLUMN `department_id` int(11) DEFAULT NULL",
+        'designation_id' => "ALTER TABLE `employees` ADD COLUMN `designation_id` int(11) DEFAULT NULL",
+        'manager_emp_id' => "ALTER TABLE `employees` ADD COLUMN `manager_emp_id` varchar(50) DEFAULT NULL",
     ];
 
     foreach ($employee_columns as $column => $sql) {
@@ -315,6 +515,13 @@ function ensure_database_schema($conn)
 
     $conn->query('ALTER TABLE `employee_document_requests` MODIFY COLUMN `doc_type` varchar(40) NOT NULL');
     $conn->query('ALTER TABLE `employee_documents` MODIFY COLUMN `doc_type` varchar(40) NOT NULL');
+
+    if (!column_exists($conn, 'admin_users', 'role_id')) {
+        $conn->query('ALTER TABLE `admin_users` ADD COLUMN `role_id` int(11) DEFAULT NULL');
+    }
+
+    seed_admin_roles_and_permissions($conn);
+    migrate_employee_department_masters($conn);
 
     return $messages;
 }
@@ -702,6 +909,9 @@ function seed_default_settings($conn)
         'late_count_for_half_day' => '3',
         'punch_sync_overtime' => '1',
         'block_punch_on_holiday_weekoff' => '1',
+        'hr_notify_emails' => '',
+        'company_email' => '',
+        'careers_public_enabled' => '1',
     ];
 
     foreach ($defaults as $key => $value) {
@@ -709,4 +919,157 @@ function seed_default_settings($conn)
         $stmt->bind_param('ss', $key, $value);
         $stmt->execute();
     }
+}
+
+function seed_admin_roles_and_permissions($conn)
+{
+    $roles = [
+        ['super_admin', 'Super Admin', 'Full access to all modules', 1],
+        ['branch_admin', 'Branch Admin', 'Full branch operations', 1],
+        ['hr_manager', 'HR Manager', 'People, leave, recruitment, performance', 1],
+        ['accounts', 'Accounts', 'Payroll, slips, expenses, reports', 1],
+        ['view_only', 'View Only', 'Read-only access', 1],
+    ];
+    foreach ($roles as $r) {
+        $stmt = $conn->prepare('INSERT IGNORE INTO admin_roles (code, name, description, is_system) VALUES (?, ?, ?, ?)');
+        $stmt->bind_param('sssi', $r[0], $r[1], $r[2], $r[3]);
+        $stmt->execute();
+    }
+
+    $perms = [
+        'super_admin' => ['*'],
+        'branch_admin' => [
+            'dashboard', 'employees', 'masters', 'org', 'calendar', 'attendance', 'leave', 'payroll', 'slips',
+            'reports', 'recruitment', 'performance', 'expenses', 'assets', 'exits', 'announcements', 'approvals',
+        ],
+        'hr_manager' => [
+            'dashboard', 'employees', 'masters', 'org', 'calendar', 'leave', 'recruitment', 'performance',
+            'expenses', 'assets', 'exits', 'announcements', 'approvals',
+        ],
+        'accounts' => [
+            'dashboard', 'employees', 'attendance', 'payroll', 'slips', 'reports', 'expenses', 'exits',
+        ],
+        'view_only' => [
+            'dashboard', 'employees', 'org', 'calendar', 'attendance', 'leave', 'reports', 'recruitment',
+            'performance', 'expenses', 'assets', 'exits',
+        ],
+    ];
+
+    foreach ($perms as $role_code => $keys) {
+        $role_id = admin_role_id_by_code($conn, $role_code);
+        if ($role_id === null) {
+            continue;
+        }
+        foreach ($keys as $key) {
+            $stmt = $conn->prepare('INSERT IGNORE INTO admin_role_permissions (role_id, permission_key) VALUES (?, ?)');
+            $stmt->bind_param('is', $role_id, $key);
+            $stmt->execute();
+        }
+    }
+
+    $super_id = admin_role_id_by_code($conn, 'super_admin');
+    $branch_id = admin_role_id_by_code($conn, 'branch_admin');
+    if ($super_id !== null) {
+        $conn->query('UPDATE admin_users SET role_id = ' . (int) $super_id . ' WHERE branch_id IS NULL AND (role_id IS NULL OR role_id = 0)');
+    }
+    if ($branch_id !== null) {
+        $conn->query('UPDATE admin_users SET role_id = ' . (int) $branch_id . ' WHERE branch_id IS NOT NULL AND (role_id IS NULL OR role_id = 0)');
+    }
+}
+
+function admin_role_id_by_code($conn, $code)
+{
+    $stmt = $conn->prepare('SELECT id FROM admin_roles WHERE code = ? LIMIT 1');
+    $stmt->bind_param('s', $code);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    return $row ? (int) $row['id'] : null;
+}
+
+function migrate_employee_department_masters($conn)
+{
+    $flag = 'hrm_masters_migrated';
+    $chk = $conn->prepare('SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1');
+    $chk->bind_param('s', $flag);
+    $chk->execute();
+    $row = $chk->get_result()->fetch_assoc();
+    if ($row && ($row['setting_value'] ?? '') === '1') {
+        return;
+    }
+
+    $dept_map = [];
+    $res = $conn->query("SELECT DISTINCT TRIM(department) AS dept FROM employees WHERE department IS NOT NULL AND TRIM(department) != ''");
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $name = $row['dept'];
+            $code = strtoupper(preg_replace('/[^A-Z0-9]+/i', '_', substr($name, 0, 18)));
+            if ($code === '') {
+                $code = 'DEPT';
+            }
+            $stmt = $conn->prepare('INSERT IGNORE INTO departments (code, name, branch_id, is_active) VALUES (?, ?, NULL, 1)');
+            $stmt->bind_param('ss', $code, $name);
+            $stmt->execute();
+            $id_stmt = $conn->prepare('SELECT id FROM departments WHERE name = ? AND branch_id IS NULL LIMIT 1');
+            $id_stmt->bind_param('s', $name);
+            $id_stmt->execute();
+            $id_row = $id_stmt->get_result()->fetch_assoc();
+            if ($id_row) {
+                $dept_map[$name] = (int) $id_row['id'];
+            }
+        }
+    }
+
+    foreach ($dept_map as $name => $dept_id) {
+        $stmt = $conn->prepare('UPDATE employees SET department_id = ? WHERE TRIM(department) = ? AND (department_id IS NULL OR department_id = 0)');
+        $stmt->bind_param('is', $dept_id, $name);
+        $stmt->execute();
+    }
+
+    $desig_res = $conn->query("SELECT DISTINCT TRIM(designation) AS desig, TRIM(department) AS dept FROM employees WHERE designation IS NOT NULL AND TRIM(designation) != ''");
+    if ($desig_res) {
+        while ($row = $desig_res->fetch_assoc()) {
+            $desig = $row['desig'];
+            $dept_id = isset($dept_map[$row['dept'] ?? '']) ? $dept_map[$row['dept']] : null;
+            $code = strtoupper(preg_replace('/[^A-Z0-9]+/i', '_', substr($desig, 0, 18)));
+            if ($code === '') {
+                $code = 'ROLE';
+            }
+            if ($dept_id === null) {
+                $stmt = $conn->prepare('INSERT IGNORE INTO designations (department_id, code, name, is_active) VALUES (NULL, ?, ?, 1)');
+                $stmt->bind_param('ss', $code, $desig);
+            } else {
+                $stmt = $conn->prepare('INSERT IGNORE INTO designations (department_id, code, name, is_active) VALUES (?, ?, ?, 1)');
+                $stmt->bind_param('iss', $dept_id, $code, $desig);
+            }
+            $stmt->execute();
+        }
+    }
+
+    $emp_res = $conn->query('SELECT emp_id, designation, department_id FROM employees WHERE designation IS NOT NULL AND TRIM(designation) != ""');
+    if ($emp_res) {
+        while ($emp = $emp_res->fetch_assoc()) {
+            $desig = trim($emp['designation']);
+            $dept_id = $emp['department_id'] ? (int) $emp['department_id'] : null;
+            if ($dept_id) {
+                $id_stmt = $conn->prepare('SELECT id FROM designations WHERE name = ? AND department_id = ? LIMIT 1');
+                $id_stmt->bind_param('si', $desig, $dept_id);
+            } else {
+                $id_stmt = $conn->prepare('SELECT id FROM designations WHERE name = ? AND department_id IS NULL LIMIT 1');
+                $id_stmt->bind_param('s', $desig);
+            }
+            $id_stmt->execute();
+            $id_row = $id_stmt->get_result()->fetch_assoc();
+            if ($id_row) {
+                $desig_id = (int) $id_row['id'];
+                $upd = $conn->prepare('UPDATE employees SET designation_id = ? WHERE emp_id = ?');
+                $upd->bind_param('is', $desig_id, $emp['emp_id']);
+                $upd->execute();
+            }
+        }
+    }
+
+    $flag_val = '1';
+    $ins = $conn->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
+    $ins->bind_param('ss', $flag, $flag_val);
+    $ins->execute();
 }

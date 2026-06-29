@@ -1,13 +1,33 @@
 <?php
-require 'includes/header.php';
-require 'config.php';
+require_once 'includes/admin_page_init.php';
+admin_page_init('dashboard');
 require_once 'includes/settings_helper.php';
 require_once 'includes/salary_helper.php';
 require_once 'includes/punch_helper.php';
 require_once 'includes/payroll_extensions.php';
-require 'includes/employee_helper.php';
+require_once 'includes/employee_helper.php';
 require_once 'includes/csrf_helper.php';
+require_once 'includes/hrm_modules_helper.php';
 
+$dash_branch_id = get_active_branch_id();
+$dash_pending_expenses = has_permission('expenses') ? count(get_pending_expense_claims($conn, $dash_branch_id)) : 0;
+$dash_pending_approvals = has_permission('approvals') ? count_pending_approvals_for_branch($conn, $dash_branch_id) : 0;
+$dash_open_jobs = 0;
+if (has_permission('recruitment')) {
+    foreach (get_job_openings($conn, $dash_branch_id) as $job) {
+        if (($job['status'] ?? '') === 'open') {
+            $dash_open_jobs++;
+        }
+    }
+}
+$dash_active_exits = 0;
+if (has_permission('exits')) {
+    foreach (get_employee_exits($conn, $dash_branch_id) as $ex) {
+        if (($ex['status'] ?? '') !== 'completed') {
+            $dash_active_exits++;
+        }
+    }
+}
 $settings = get_all_settings($conn);
 $branch_filter = branch_employees_sql('e');
 $emp_count_stmt = $conn->prepare('SELECT COUNT(*) as count FROM employees e WHERE 1=1' . $branch_filter['sql']);
@@ -114,6 +134,7 @@ $punch_logs_today_url = 'punch_logs.php?year=' . $today_year . '&month=' . $toda
     </div>
     <div class="page-header-actions">
         <a href="employees.php" class="btn btn-outline">Employees</a>
+        <a href="payroll_center.php" class="btn btn-outline">Payroll Center</a>
         <a href="punch_logs.php" class="btn btn-outline">Punch Logs</a>
         <a href="upload_attendance.php" class="btn btn-header">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -129,33 +150,45 @@ $punch_logs_today_url = 'punch_logs.php?year=' . $today_year . '&month=' . $toda
 <?php endif; ?>
 
 <div class="settings-status dashboard-status">
-    <div class="settings-status-chip neutral">
-        <span class="status-dot"></span>
-        <div>
+    <div class="settings-status-chip neutral dashboard-status-chip">
+        <span class="dashboard-chip-icon dashboard-chip-icon-period" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </span>
+        <div class="dashboard-chip-body">
+            <span class="dashboard-chip-label">Payroll period</span>
             <strong><?php echo htmlspecialchars($payroll_period_label); ?></strong>
-            <span><?php echo (int) $employees_with_attendance; ?> with attendance · <?php echo $working_days; ?> working days</span>
+            <span class="dashboard-chip-sub"><?php echo (int) $employees_with_attendance; ?> with attendance · <?php echo $working_days; ?> working days</span>
         </div>
     </div>
-    <div class="settings-status-chip <?php echo $slip_eligible_count > 0 && $slips_in_portal_count >= $slip_eligible_count ? 'ok' : ($slip_eligible_count > 0 && !$slips_portal_ready ? 'warn' : 'neutral'); ?>">
-        <span class="status-dot"></span>
-        <div>
-            <strong><?php echo (int) $slips_in_portal_count; ?> / <?php echo (int) $slip_eligible_count; ?> slips in portal</strong>
-            <span><?php echo $slips_portal_ready ? 'Visible in employee portal' : 'Approve payroll to release slips'; ?></span>
+    <div class="settings-status-chip <?php echo $slip_eligible_count > 0 && $slips_in_portal_count >= $slip_eligible_count ? 'ok' : ($slip_eligible_count > 0 && !$slips_portal_ready ? 'warn' : 'neutral'); ?> dashboard-status-chip">
+        <span class="dashboard-chip-icon dashboard-chip-icon-slips" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </span>
+        <div class="dashboard-chip-body">
+            <span class="dashboard-chip-label">Salary slips</span>
+            <strong><?php echo (int) $slips_in_portal_count; ?> <span class="dashboard-chip-of">/ <?php echo (int) $slip_eligible_count; ?></span></strong>
+            <span class="dashboard-chip-sub"><?php echo $slips_portal_ready ? 'Visible in employee portal' : 'Approve payroll to release slips'; ?></span>
         </div>
     </div>
-    <div class="settings-status-chip <?php echo $period_status === 'approved' || $period_status === 'locked' ? 'ok' : ($period_status === 'review' ? 'warn' : 'neutral'); ?>">
-        <span class="status-dot"></span>
-        <div>
-            <strong>Payroll: <?php echo htmlspecialchars(payroll_period_status_label($period_status)); ?></strong>
-            <span><?php echo $period_locked ? 'Attendance locked' : ($require_slip_approval ? 'Approve to show slips in portal' : 'Slips auto-visible when attendance exists'); ?></span>
+    <div class="settings-status-chip <?php echo $period_status === 'approved' || $period_status === 'locked' ? 'ok' : ($period_status === 'review' ? 'warn' : 'neutral'); ?> dashboard-status-chip">
+        <span class="dashboard-chip-icon dashboard-chip-icon-payroll" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </span>
+        <div class="dashboard-chip-body">
+            <span class="dashboard-chip-label">Payroll status</span>
+            <strong><?php echo htmlspecialchars(payroll_period_status_label($period_status)); ?></strong>
+            <span class="dashboard-chip-sub"><?php echo $period_locked ? 'Attendance locked' : ($require_slip_approval ? 'Approve to show slips in portal' : 'Slips auto-visible when attendance exists'); ?></span>
         </div>
     </div>
     <?php if ($punch_enabled && $punch_today !== null): ?>
-    <div class="settings-status-chip <?php echo ($punch_today['late_in_count'] + $punch_today['early_out_count']) > 0 ? 'warn' : 'ok'; ?>">
-        <span class="status-dot"></span>
-        <div>
-            <strong>Today: <?php echo (int) $punch_today['late_in_count']; ?> late · <?php echo (int) $punch_today['early_out_count']; ?> early</strong>
-            <span>
+    <div class="settings-status-chip <?php echo ($punch_today['late_in_count'] + $punch_today['early_out_count']) > 0 ? 'warn' : 'ok'; ?> dashboard-status-chip">
+        <span class="dashboard-chip-icon dashboard-chip-icon-punch" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </span>
+        <div class="dashboard-chip-body">
+            <span class="dashboard-chip-label">Today&apos;s punch</span>
+            <strong><?php echo (int) $punch_today['late_in_count']; ?> late · <?php echo (int) $punch_today['early_out_count']; ?> early</strong>
+            <span class="dashboard-chip-sub">
                 <?php echo (int) $punch_today['employee_count']; ?> employees punched
                 · <a href="<?php echo htmlspecialchars($punch_logs_today_url); ?>">Punch logs</a>
                 <?php if ($punch_today['late_in_count'] > 0): ?>
@@ -166,6 +199,38 @@ $punch_logs_today_url = 'punch_logs.php?year=' . $today_year . '&month=' . $toda
     </div>
     <?php endif; ?>
 </div>
+
+<?php if (has_permission('expenses') || has_permission('recruitment') || has_permission('exits') || has_permission('approvals')): ?>
+<div class="dashboard-hrm-strip">
+    <h3 class="dashboard-hrm-heading">HRM snapshot</h3>
+    <div class="dashboard-hrm-chips">
+        <?php if (has_permission('approvals')): ?>
+        <a href="approvals.php" class="dashboard-hrm-chip <?php echo $dash_pending_approvals > 0 ? 'is-warn' : ''; ?>">
+            <strong><?php echo (int) $dash_pending_approvals; ?></strong>
+            <span>Pending approvals</span>
+        </a>
+        <?php endif; ?>
+        <?php if (has_permission('expenses')): ?>
+        <a href="expenses.php?status=pending" class="dashboard-hrm-chip <?php echo $dash_pending_expenses > 0 ? 'is-warn' : ''; ?>">
+            <strong><?php echo (int) $dash_pending_expenses; ?></strong>
+            <span>Expense claims</span>
+        </a>
+        <?php endif; ?>
+        <?php if (has_permission('recruitment')): ?>
+        <a href="recruitment.php" class="dashboard-hrm-chip">
+            <strong><?php echo (int) $dash_open_jobs; ?></strong>
+            <span>Open positions</span>
+        </a>
+        <?php endif; ?>
+        <?php if (has_permission('exits')): ?>
+        <a href="employee_exits.php" class="dashboard-hrm-chip <?php echo $dash_active_exits > 0 ? 'is-warn' : ''; ?>">
+            <strong><?php echo (int) $dash_active_exits; ?></strong>
+            <span>Active exits</span>
+        </a>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="card-container dashboard-stats">
     <div class="stat-card stat-card-primary">

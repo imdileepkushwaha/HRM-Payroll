@@ -1,14 +1,15 @@
 <?php
-require 'includes/header.php';
-require 'config.php';
+require_once 'includes/admin_page_init.php';
+admin_page_init('employees');
 require_once 'includes/settings_helper.php';
 require_once 'includes/salary_helper.php';
 require_once 'includes/payroll_extensions.php';
-require 'includes/employee_helper.php';
+require_once 'includes/employee_helper.php';
 require_once 'includes/attendance_helper.php';
 require_once 'includes/punch_helper.php';
 require_once 'includes/employee_document_helper.php';
 require_once 'includes/face_biometric_helper.php';
+require_once 'includes/hrm_modules_helper.php';
 
 $emp_id = trim($_GET['emp_id'] ?? '');
 if ($emp_id === '') {
@@ -17,6 +18,9 @@ if ($emp_id === '') {
 }
 
 $employee = require_employee_branch_access($conn, $emp_id);
+$master_departments = get_departments($conn, (int) $employee['branch_id']);
+$master_designations = get_designations($conn);
+$manager_candidates = get_manager_candidates($conn, (int) $employee['branch_id'], $emp_id);
 
 $settings = get_all_settings($conn);
 $year = (int) ($_GET['year'] ?? date('Y'));
@@ -802,15 +806,36 @@ $joined_date_display = format_joined_date_display($employee['joined_date'] ?? nu
                 <h4 class="modal-section-title">Job &amp; compensation</h4>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="ev_edit_department">Department</label>
-                        <input type="text" name="department" id="ev_edit_department" value="<?php echo htmlspecialchars($employee['department'] ?? ''); ?>">
+                        <label for="ev_edit_department_id">Department</label>
+                        <select name="department_id" id="ev_edit_department_id">
+                            <option value="">— Custom / other —</option>
+                            <?php foreach ($master_departments as $d): ?>
+                                <option value="<?php echo (int) $d['id']; ?>" <?php echo (int)($employee['department_id'] ?? 0) === (int)$d['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($d['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" name="department" id="ev_edit_department" value="<?php echo htmlspecialchars($employee['department'] ?? ''); ?>" placeholder="Or type department name">
                     </div>
                     <div class="form-group">
-                        <label for="ev_edit_designation">Designation</label>
-                        <input type="text" name="designation" id="ev_edit_designation" value="<?php echo htmlspecialchars($employee['designation'] ?? ''); ?>">
+                        <label for="ev_edit_designation_id">Designation</label>
+                        <select name="designation_id" id="ev_edit_designation_id">
+                            <option value="">— Custom / other —</option>
+                            <?php foreach ($master_designations as $d): ?>
+                                <option value="<?php echo (int) $d['id']; ?>" <?php echo (int)($employee['designation_id'] ?? 0) === (int)$d['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($d['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="text" name="designation" id="ev_edit_designation" value="<?php echo htmlspecialchars($employee['designation'] ?? ''); ?>" placeholder="Or type designation">
                     </div>
                 </div>
                 <div class="form-row">
+                    <div class="form-group">
+                        <label for="ev_edit_manager">Reporting manager</label>
+                        <select name="manager_emp_id" id="ev_edit_manager">
+                            <option value="">— None —</option>
+                            <?php foreach ($manager_candidates as $m): ?>
+                                <option value="<?php echo htmlspecialchars($m['emp_id']); ?>" <?php echo ($employee['manager_emp_id'] ?? '') === $m['emp_id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($m['name'] . ' (' . $m['emp_id'] . ')'); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label for="ev_edit_grade">Grade</label>
                         <input type="text" name="grade" id="ev_edit_grade" value="<?php echo htmlspecialchars($employee['grade'] ?? ''); ?>">

@@ -426,6 +426,7 @@ function count_pending_approvals_for_branch($conn, $branch_id = null)
     $att_sql = "SELECT COUNT(*) AS c FROM employee_attendance_requests WHERE request_status = 'pending'";
     $leave_sql = "SELECT COUNT(*) AS c FROM employee_leave_requests WHERE request_status IN ('pending', 'cancellation_pending')";
     $doc_sql = "SELECT COUNT(*) AS c FROM employee_document_requests WHERE request_status = 'pending'";
+    $exp_sql = "SELECT COUNT(*) AS c FROM expense_claims WHERE request_status = 'pending'";
     $types = '';
     $params = [];
 
@@ -434,12 +435,13 @@ function count_pending_approvals_for_branch($conn, $branch_id = null)
         $att_sql .= ' AND branch_id = ?';
         $leave_sql .= ' AND branch_id = ?';
         $doc_sql .= ' AND branch_id = ?';
+        $exp_sql .= ' AND branch_id = ?';
         $types = 'i';
         $params = [$branch_id];
     }
 
     $total = 0;
-    foreach ([$profile_sql, $att_sql, $leave_sql, $doc_sql] as $sql) {
+    foreach ([$profile_sql, $att_sql, $leave_sql, $doc_sql, $exp_sql] as $sql) {
         $stmt = $conn->prepare($sql);
         if ($types !== '') {
             $stmt->bind_param($types, ...$params);

@@ -3,7 +3,8 @@ require_once 'includes/session_auth.php';
 enforce_admin_session();
 require_once 'includes/csrf_helper.php';
 require 'config.php';
-require 'includes/employee_helper.php';
+require_permission('employees');
+require_once 'includes/employee_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: employees.php');

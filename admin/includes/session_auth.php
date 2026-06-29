@@ -47,13 +47,14 @@ function expire_admin_session($message = null)
     $_SESSION['login_error'] = $msg;
 }
 
-function set_admin_session_on_login($username, $branch_id = null, $active_branch_id = null)
+function set_admin_session_on_login($username, $branch_id = null, $active_branch_id = null, $role_id = null)
 {
     $_SESSION['admin_logged_in'] = true;
     $_SESSION['admin_username'] = $username;
     $_SESSION['admin_branch_id'] = $branch_id;
     $_SESSION['admin_active_branch_id'] = $active_branch_id ?? $branch_id ?? BRANCH_FILTER_ALL;
     $_SESSION['admin_last_activity'] = time();
+    $_SESSION['admin_role_id'] = $role_id;
 }
 
 function enforce_admin_session()

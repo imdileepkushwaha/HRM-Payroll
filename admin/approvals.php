@@ -1,8 +1,9 @@
 <?php
-require 'includes/header.php';
-require 'config.php';
+require_once 'includes/admin_page_init.php';
+admin_page_init('approvals');
 require_once 'includes/attendance_helper.php';
 require_once 'includes/employee_document_helper.php';
+require_once 'includes/hrm_modules_helper.php';
 
 $branch_filter = get_active_branch_id();
 $active_branch_label = get_branch_label($conn, $branch_filter);
@@ -10,7 +11,17 @@ $pending_profile = get_pending_profile_requests($conn, $branch_filter);
 $pending_documents = get_pending_document_requests($conn, $branch_filter);
 $pending_attendance = get_pending_attendance_requests($conn, $branch_filter);
 $pending_leave = get_pending_leave_requests($conn, $branch_filter);
-$pending_total = count($pending_profile) + count($pending_documents) + count($pending_attendance) + count($pending_leave);
+$pending_expenses = has_permission('expenses') ? get_pending_expense_claims($conn, $branch_filter) : [];
+$pending_total = count($pending_profile) + count($pending_documents) + count($pending_attendance) + count($pending_leave) + count($pending_expenses);
+if ($pending_total > 0) {
+    $reminder_key = 'approval_reminder_' . date('Y-m-d');
+    if (empty($_SESSION[$reminder_key])) {
+        require_once 'includes/settings_helper.php';
+        require_once 'includes/notification_helper.php';
+        notify_approval_pending_reminder(get_all_settings($conn), $pending_total, 'approval');
+        $_SESSION[$reminder_key] = true;
+    }
+}
 $leave_types_map = get_leave_types($conn);
 
 $employee_cache = [];
@@ -30,7 +41,7 @@ function approvals_employee($conn, $emp_id, &$cache)
         <div class="page-header-main">
             <p class="page-eyebrow">Employee portal</p>
             <h2>Approval requests</h2>
-            <p>Review profile updates, document uploads, leave applications and manual attendance submitted by employees<?php echo $branch_filter !== null ? ' at <strong>' . htmlspecialchars($active_branch_label) . '</strong>' : ''; ?>.</p>
+            <p>Review profile updates, document uploads, leave applications, expense claims and manual attendance submitted by employees<?php echo $branch_filter !== null ? ' at <strong>' . htmlspecialchars($active_branch_label) . '</strong>' : ''; ?>.</p>
         </div>
     </div>
 
@@ -97,6 +108,18 @@ function approvals_employee($conn, $emp_id, &$cache)
                 <span class="approvals-stat-hint">Manual mark requests</span>
             </div>
         </div>
+        <?php if (has_permission('expenses')): ?>
+        <div class="approvals-stat approvals-stat-expenses">
+            <span class="approvals-stat-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            </span>
+            <div>
+                <span class="approvals-stat-label">Expenses</span>
+                <strong class="approvals-stat-value"><?php echo count($pending_expenses); ?></strong>
+                <span class="approvals-stat-hint">Reimbursement claims</span>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
     <div class="approvals-layout">
@@ -471,5 +494,67 @@ function approvals_employee($conn, $emp_id, &$cache)
             <?php endif; ?>
         </div>
     </section>
+    </div>
+
+    <?php if (has_permission('expenses')): ?>
+    <section class="panel panel-elevated approvals-panel approvals-panel-expenses">
+        <div class="panel-header">
+            <div class="panel-title-group approvals-panel-head">
+                <span class="approvals-panel-icon approvals-panel-icon-expenses" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                </span>
+                <div>
+                    <h3>Expense reimbursement</h3>
+                    <p class="approvals-panel-desc">Employee expense claims awaiting approval.</p>
+                </div>
+            </div>
+            <span class="panel-badge"><?php echo count($pending_expenses); ?> pending</span>
+        </div>
+        <div class="panel-body approvals-panel-body">
+            <?php if ($pending_expenses === []): ?>
+                <div class="empty-state compact approvals-empty">
+                    <h4>No expense claims</h4>
+                    <p>Submitted reimbursement requests will appear here.</p>
+                </div>
+            <?php else: ?>
+                <ul class="approvals-expense-list">
+                    <?php foreach ($pending_expenses as $ex):
+                        $initial = strtoupper(substr($ex['emp_name'] ?? 'E', 0, 1));
+                        ?>
+                    <li class="approval-expense-item">
+                        <div class="approval-expense-main">
+                            <span class="approval-expense-avatar" aria-hidden="true"><?php echo htmlspecialchars($initial); ?></span>
+                            <div class="approval-expense-body">
+                                <a href="employee_view.php?emp_id=<?php echo rawurlencode($ex['emp_id']); ?>" class="approval-expense-name"><?php echo htmlspecialchars($ex['emp_name']); ?></a>
+                                <span class="approval-expense-meta"><?php echo htmlspecialchars($ex['category']); ?> · <?php echo date('d M Y', strtotime($ex['claim_date'])); ?></span>
+                                <?php if (!empty($ex['description'])): ?>
+                                    <p class="approval-expense-desc"><?php echo htmlspecialchars($ex['description']); ?></p>
+                                <?php endif; ?>
+                                <?php if (!empty($ex['receipt_path'])): ?>
+                                    <a href="<?php echo htmlspecialchars($ex['receipt_path']); ?>" class="approval-expense-receipt" target="_blank" rel="noopener">View receipt</a>
+                                <?php endif; ?>
+                            </div>
+                            <strong class="approval-expense-amount"><?php echo format_money((float) $ex['amount']); ?></strong>
+                        </div>
+                        <footer class="approval-expense-footer">
+                            <form method="POST" action="expense_save.php" class="approval-expense-form">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="expense_action" value="review">
+                                <input type="hidden" name="claim_id" value="<?php echo (int) $ex['id']; ?>">
+                                <input type="hidden" name="redirect" value="approvals.php">
+                                <input type="text" name="review_note" placeholder="Note (optional)" class="approval-leave-item-note-input" aria-label="Review note">
+                                <div class="approval-leave-item-buttons">
+                                    <button type="submit" name="decision" value="approve" class="btn btn-sm btn-success">Approve</button>
+                                    <button type="submit" name="decision" value="reject" class="btn btn-outline btn-sm btn-danger-outline">Reject</button>
+                                </div>
+                            </form>
+                        </footer>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </div>
+    </section>
+    <?php endif; ?>
 </div>
 <?php require 'includes/footer.php'; ?>

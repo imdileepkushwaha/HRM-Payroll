@@ -2,6 +2,7 @@
 require_once 'includes/session_auth.php';
 enforce_admin_session();
 require 'config.php';
+require_permission('attendance');
 require_once 'includes/attendance_import.php';
 
 if (!empty($_GET['cancel_preview'])) {

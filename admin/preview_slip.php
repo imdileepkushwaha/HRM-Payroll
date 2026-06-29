@@ -2,6 +2,7 @@
 require_once 'includes/session_auth.php';
 enforce_admin_session();
 require 'config.php';
+require_permission('slips');
 require_once 'includes/settings_helper.php';
 require_once 'includes/salary_helper.php';
 require 'includes/pdf_slip.php';

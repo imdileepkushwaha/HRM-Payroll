@@ -3,6 +3,7 @@ require __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/../includes/settings_helper.php';
 require_once __DIR__ . '/../includes/salary_helper.php';
 require_once __DIR__ . '/../includes/payroll_extensions.php';
+require_once __DIR__ . '/../includes/hrm_helper.php';
 require_once __DIR__ . '/includes/period.php';
 
 $settings = get_all_settings($conn);
@@ -38,6 +39,7 @@ $hour = (int) date('G');
 $greeting = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
 $today_label = date('l, j M Y');
 $sent_slip_count = count(get_employee_available_salary_slips($conn, $employee, $settings, 36));
+$portal_announcements = get_employee_portal_announcements($conn, (int) $employee['branch_id'], 5);
 ?>
 <div class="emp-page emp-page-dashboard">
     <?php require __DIR__ . '/includes/flash.php'; ?>
@@ -93,6 +95,25 @@ $sent_slip_count = count(get_employee_available_salary_slips($conn, $employee, $
     </header>
 
     <?php require __DIR__ . '/includes/punch_card.php'; ?>
+
+    <?php if (count($portal_announcements) > 0): ?>
+    <section class="emp-announcements" aria-label="Company announcements">
+        <div class="emp-announcements-head">
+            <h2>Announcements</h2>
+            <span class="emp-announcements-count"><?php echo count($portal_announcements); ?></span>
+        </div>
+        <div class="emp-announcements-list">
+            <?php foreach ($portal_announcements as $ann): ?>
+            <article class="emp-announcement-card <?php echo (int) ($ann['is_pinned'] ?? 0) === 1 ? 'is-pinned' : ''; ?>">
+                <?php if ((int) ($ann['is_pinned'] ?? 0) === 1): ?><span class="emp-announcement-pin">Pinned</span><?php endif; ?>
+                <h3><?php echo htmlspecialchars($ann['title']); ?></h3>
+                <p><?php echo nl2br(htmlspecialchars($ann['body'])); ?></p>
+                <time datetime="<?php echo htmlspecialchars(date('c', strtotime($ann['created_at']))); ?>"><?php echo date('j M Y', strtotime($ann['created_at'])); ?></time>
+            </article>
+            <?php endforeach; ?>
+        </div>
+    </section>
+    <?php endif; ?>
 
     <div class="emp-dash-stats">
         <div class="emp-dash-stat emp-dash-stat-paid">
