@@ -1,0 +1,10 @@
+{
+  "name": "Employee Portal",
+  "short_name": "Emp Portal",
+  "description": "Payroll employee self-service portal",
+  "start_url": "./dashboard.php",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary"
+}

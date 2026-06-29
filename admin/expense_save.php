@@ -18,6 +18,20 @@ $branch_id = get_active_branch_id();
 
 if ($action === 'review') {
     $result = review_expense_claim($conn, (int) ($_POST['claim_id'] ?? 0), $_POST['decision'] ?? 'reject', $reviewer, trim($_POST['review_note'] ?? ''), $branch_id);
+    if ($result['ok']) {
+        require_once 'includes/settings_helper.php';
+        require_once 'includes/employee_portal_features_helper.php';
+        require_once 'includes/salary_helper.php';
+        $settings = get_all_settings($conn);
+        $cid = (int) ($_POST['claim_id'] ?? 0);
+        $cs = $conn->prepare('SELECT x.*, e.email FROM expense_claims x INNER JOIN employees e ON e.emp_id = x.emp_id WHERE x.id = ?');
+        $cs->bind_param('i', $cid);
+        $cs->execute();
+        if ($crow = $cs->get_result()->fetch_assoc()) {
+            $verb = ($_POST['decision'] ?? '') === 'approve' ? 'approved' : 'rejected';
+            notify_employee_email($settings, $crow['email'] ?? null, 'Expense claim ' . $verb, '<p>Your expense claim of ' . htmlspecialchars(format_money((float) $crow['amount'])) . ' was ' . $verb . '.</p>');
+        }
+    }
 } else {
     $result = ['ok' => false, 'message' => 'Invalid action.'];
 }

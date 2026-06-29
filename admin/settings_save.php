@@ -84,6 +84,7 @@ if ($section === 'payroll') {
     set_setting($conn, 'hr_notify_emails', trim($_POST['hr_notify_emails'] ?? ''));
     set_setting($conn, 'company_email', trim($_POST['company_email'] ?? ''));
     set_setting($conn, 'careers_public_enabled', !empty($_POST['careers_public_enabled']) ? '1' : '0');
+    set_setting($conn, 'company_policies_html', trim($_POST['company_policies_html'] ?? ''));
     set_setting($conn, 'working_days_per_month', trim($_POST['working_days_per_month'] ?? '26'));
     set_setting($conn, 'signature_authority_name', trim($_POST['signature_authority_name'] ?? 'Authorized Signatory'));
     set_setting($conn, 'pct_basic', trim($_POST['pct_basic'] ?? '50'));

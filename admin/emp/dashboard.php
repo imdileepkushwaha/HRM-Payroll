@@ -172,6 +172,21 @@ $portal_announcements = get_employee_portal_announcements($conn, (int) $employee
     </div>
     <?php endif; ?>
 
+    <nav class="emp-dash-shortcuts" aria-label="Quick links">
+        <a href="notifications.php" class="emp-dash-shortcut">Notifications<?php if ($emp_notify_count > 0): ?> <span class="emp-nav-badge"><?php echo (int) $emp_notify_count; ?></span><?php endif; ?></a>
+        <a href="wfh.php" class="emp-dash-shortcut">WFH</a>
+        <a href="regularization.php" class="emp-dash-shortcut">Regularization</a>
+        <a href="policies.php" class="emp-dash-shortcut">Policies</a>
+        <a href="helpdesk.php" class="emp-dash-shortcut">Helpdesk</a>
+        <a href="ytd.php" class="emp-dash-shortcut">YTD</a>
+        <a href="assets.php" class="emp-dash-shortcut">Assets</a>
+        <a href="announcements.php" class="emp-dash-shortcut">Announcements</a>
+        <?php if ($emp_is_manager): ?>
+        <a href="team_approvals.php" class="emp-dash-shortcut">Team approvals</a>
+        <a href="calendar.php" class="emp-dash-shortcut">Team calendar</a>
+        <?php endif; ?>
+    </nav>
+
     <div class="emp-quick-cards">
         <a href="attendance.php?<?php echo $period_query; ?>" class="emp-quick-card emp-quick-card-att">
             <span class="emp-quick-card-accent" aria-hidden="true"></span>

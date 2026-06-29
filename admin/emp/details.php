@@ -106,6 +106,25 @@ $joined_display = format_joined_date_display($employee['joined_date'] ?? null);
             <div class="emp-face-setup-card emp-doc-link-card">
                 <div class="emp-face-setup-head">
                     <span class="emp-face-setup-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    </span>
+                    <div>
+                        <h3>Email preferences</h3>
+                        <p>Choose whether salary slip emails are sent to your registered email when payroll is processed.</p>
+                    </div>
+                </div>
+                <form method="POST" action="preferences_save.php" class="emp-prefs-form">
+                    <?php echo csrf_field(); ?>
+                    <label class="emp-checkbox-row">
+                        <input type="checkbox" name="slip_email_enabled" value="1" <?php echo !empty($portal_prefs['slip_email_enabled']) ? 'checked' : ''; ?>>
+                        <span>Send salary slip to my email</span>
+                    </label>
+                    <button type="submit" class="btn btn-block">Save preferences</button>
+                </form>
+            </div>
+            <div class="emp-face-setup-card emp-doc-link-card">
+                <div class="emp-face-setup-head">
+                    <span class="emp-face-setup-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     </span>
                     <div>

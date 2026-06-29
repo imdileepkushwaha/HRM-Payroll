@@ -403,6 +403,11 @@ $active_meta = $tab_meta[$tab] ?? $tab_meta['smtp'];
                         <input type="checkbox" name="careers_public_enabled" value="1" <?php echo ($settings['careers_public_enabled'] ?? '1') === '1' ? 'checked' : ''; ?>>
                         <span>Enable public careers page (<a href="careers.php" target="_blank" rel="noopener">careers.php</a>)</span>
                     </label>
+                    <div class="form-group">
+                        <label>Employee portal policies (HTML)</label>
+                        <textarea name="company_policies_html" rows="8" class="settings-payroll-input" placeholder="Leave policy, WFH rules, code of conduct…"><?php echo htmlspecialchars($settings['company_policies_html'] ?? ''); ?></textarea>
+                        <span class="form-hint">Shown on the employee portal Policies page. Basic HTML tags allowed.</span>
+                    </div>
                     <div class="form-row form-row-3 settings-payroll-field-row">
                         <div class="form-group">
                             <label>Working days / month</label>

@@ -13718,6 +13718,8 @@ button.emp-quick-card {
 .emp-req-approved { background: #d1fae5; color: #065f46; }
 .emp-req-rejected { background: #fee2e2; color: #991b1b; }
 .emp-req-cancelled, .emp-req-cancellation_pending { background: #fee2e2; color: #991b1b; }
+.emp-req-self_review { background: #e0e7ff; color: #3730a3; }
+.emp-req-completed, .emp-req-closed { background: #f1f5f9; color: #475569; }
 
 .emp-req-table {
     width: 100%;
@@ -23603,4 +23605,994 @@ button.emp-quick-card {
 .exits-fnf-disclaimer { margin-bottom: 1rem; }
 .exits-fnf-summary-card { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
 .exits-fnf-pdf-btn { margin-left: auto; }
+
+/* Employee portal — feature pages (assets, team, WFH, helpdesk, etc.) */
+
+/* Page shell */
+.emp-page-head {
+    margin-bottom: 1.25rem;
+}
+.emp-page-head h1 {
+    margin: 0 0 0.35rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    line-height: 1.2;
+}
+.emp-page-head p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    max-width: 42rem;
+}
+.emp-muted {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.emp-panel {
+    margin-bottom: 1rem;
+    padding: 1.25rem 1.35rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 12px);
+    box-shadow: var(--shadow, 0 1px 3px rgba(15, 23, 42, 0.06));
+}
+.emp-panel h2 {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+.emp-panel-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.emp-panel-head-row h2 {
+    margin: 0;
+}
+
+/* Forms */
+.emp-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.emp-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+}
+.emp-form input[type="text"],
+.emp-form input[type="email"],
+.emp-form input[type="tel"],
+.emp-form input[type="date"],
+.emp-form input[type="time"],
+.emp-form input[type="number"],
+.emp-form input[type="password"],
+.emp-form input[type="file"],
+.emp-form select,
+.emp-form textarea {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--text);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.emp-form input:focus,
+.emp-form select:focus,
+.emp-form textarea:focus {
+    outline: none;
+    border-color: var(--primary, #4f46e5);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+.emp-form textarea {
+    min-height: 88px;
+    resize: vertical;
+}
+.emp-form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+}
+.emp-form-inline {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+}
+.emp-form-inline label {
+    min-width: 140px;
+}
+
+/* Buttons */
+.emp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+.emp-btn:active { transform: translateY(1px); }
+.emp-btn-primary {
+    color: #fff;
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    border-color: #4f46e5;
+    box-shadow: 0 1px 2px rgba(79, 70, 229, 0.25);
+}
+.emp-btn-primary:hover {
+    background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+}
+.emp-btn-outline {
+    color: #334155;
+    background: #fff;
+    border-color: var(--border);
+}
+.emp-btn-outline:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+}
+.emp-btn.btn-sm,
+.emp-btn-primary.btn-sm,
+.emp-btn-outline.btn-sm {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+/* Status badges (request lists) */
+.emp-badge-pending,
+.emp-badge-cancellation_pending { background: #fef3c7; color: #92400e; }
+.emp-badge-approved,
+.emp-badge-answered { background: #dcfce7; color: #166534; }
+.emp-badge-rejected,
+.emp-badge-closed { background: #fee2e2; color: #991b1b; }
+.emp-badge-open { background: #e0e7ff; color: #3730a3; }
+
+/* Nav badge + topbar notify */
+.emp-nav-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 5px;
+    margin-left: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    background: #ef4444;
+    border-radius: 999px;
+}
+.emp-topbar-notify {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-right: 8px;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    transition: border-color 0.15s, background 0.15s;
+}
+.emp-topbar-notify:hover {
+    border-color: var(--primary, #4f46e5);
+    background: #f8fafc;
+}
+.emp-topbar-notify svg { width: 20px; height: 20px; }
+.emp-topbar-notify-count {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    color: #fff;
+    background: #ef4444;
+    border-radius: 999px;
+}
+
+/* Dashboard shortcuts */
+.emp-dash-shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0 0 1.25rem;
+}
+.emp-dash-shortcut {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+    text-decoration: none;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.emp-dash-shortcut:hover {
+    border-color: var(--primary, #4f46e5);
+    background: #f8fafc;
+    box-shadow: 0 1px 3px rgba(79, 70, 229, 0.08);
+}
+
+/* Assets */
+.emp-asset-list,
+.emp-ticket-list,
+.emp-notify-list,
+.emp-team-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+}
+.emp-asset-card,
+.emp-ticket-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1rem 1.1rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: border-color 0.15s;
+}
+.emp-asset-card:hover,
+.emp-ticket-card:hover {
+    border-color: #c7d2fe;
+}
+.emp-asset-card strong,
+.emp-ticket-card strong {
+    font-size: 0.95rem;
+    color: #0f172a;
+}
+
+/* Team */
+.emp-team-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1rem 1.1rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #fff 100%);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.emp-team-card strong {
+    font-size: 1rem;
+    color: #0f172a;
+}
+.emp-team-card a {
+    color: var(--primary, #4f46e5);
+    font-size: 0.875rem;
+    text-decoration: none;
+    font-weight: 500;
+}
+.emp-team-card a:hover { text-decoration: underline; }
+.emp-team-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+/* Manager approvals */
+.emp-approval-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.emp-approval-card:last-child { margin-bottom: 0; }
+.emp-approval-card strong { color: #0f172a; }
+.emp-approval-card > span {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+.emp-approval-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed #e2e8f0;
+}
+.emp-approval-form input[type="text"] {
+    flex: 1 1 160px;
+    min-width: 120px;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+/* Expense claim cards */
+.emp-claim-list-detail { display: grid; gap: 0.75rem; }
+.emp-claim-card {
+    padding: 1rem 1.1rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.emp-claim-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+.emp-claim-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+}
+.emp-claim-desc,
+.emp-claim-review {
+    margin: 0.5rem 0 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+.emp-claim-review { color: var(--text-muted); }
+.emp-claim-receipt-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary, #4f46e5);
+    text-decoration: none;
+}
+.emp-claim-receipt-link:hover { text-decoration: underline; }
+
+/* Helpdesk tickets */
+.emp-ticket-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.emp-ticket-reply {
+    margin-top: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Notifications */
+.emp-notify-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.emp-notify-item:hover {
+    border-color: var(--primary, #4f46e5);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.08);
+}
+.emp-notify-item.is-priority-warn { border-left: 3px solid #f59e0b; }
+.emp-notify-item.is-priority-info { border-left: 3px solid #3b82f6; }
+
+/* Team calendar */
+.emp-calendar-panel { padding: 1rem; }
+.emp-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+}
+.emp-cal-head {
+    padding: 0.4rem 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+    color: var(--text-muted);
+}
+.emp-cal-day {
+    min-height: 72px;
+    padding: 6px;
+    font-size: 0.8rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.emp-cal-day.is-empty {
+    background: transparent;
+    border-color: transparent;
+    min-height: 0;
+}
+.emp-cal-day.is-today {
+    border-color: var(--primary, #4f46e5);
+    background: #eff6ff;
+    box-shadow: inset 0 0 0 1px rgba(79, 70, 229, 0.15);
+}
+.emp-cal-day.is-holiday {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+.emp-cal-day.has-leave {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+.emp-cal-day strong {
+    font-size: 0.85rem;
+    color: #0f172a;
+}
+.emp-cal-tag {
+    display: block;
+    padding: 2px 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1.3;
+    border-radius: 4px;
+    background: rgba(79, 70, 229, 0.1);
+    color: #4338ca;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.emp-cal-day.is-holiday .emp-cal-tag {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.emp-cal-day.has-leave .emp-cal-tag {
+    background: #dcfce7;
+    color: #166534;
+}
+
+/* YTD table */
+.emp-ytd-table th,
+.emp-ytd-table td {
+    font-size: 0.875rem;
+}
+.emp-ytd-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* Exit / resignation */
+.emp-exit-status {
+    border-left: 4px solid #f59e0b;
+    background: linear-gradient(90deg, #fffbeb 0%, #fff 40%);
+}
+.emp-exit-status p {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* Policies */
+.emp-policies-body { padding: 0; background: transparent; border: 0; box-shadow: none; }
+.emp-policies-content {
+    padding: 1.25rem 1.35rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    line-height: 1.65;
+    font-size: 0.95rem;
+}
+.emp-policies-content h2,
+.emp-policies-content h3 {
+    margin: 1.25rem 0 0.5rem;
+    color: #0f172a;
+}
+.emp-policies-content ul,
+.emp-policies-content ol {
+    padding-left: 1.25rem;
+    margin: 0.5rem 0;
+}
+
+/* Announcements full page */
+.emp-announcements-page {
+    display: grid;
+    gap: 0.75rem;
+}
+
+/* Email preferences */
+.emp-prefs-form { margin-top: 0.75rem; }
+.emp-checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    line-height: 1.4;
+}
+.emp-checkbox-row input { margin-top: 0.15rem; flex-shrink: 0; }
+
+/* Admin helpdesk */
+.helpdesk-admin-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+.helpdesk-admin-list {
+    display: grid;
+    gap: 1rem;
+}
+.helpdesk-admin-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+.helpdesk-admin-reply-form {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+    .emp-panel { padding: 1rem; }
+    .emp-form-inline label { min-width: 100%; }
+    .emp-approval-form { flex-direction: column; align-items: stretch; }
+    .emp-approval-form .emp-btn { width: 100%; }
+}
+@media (max-width: 640px) {
+    .emp-calendar-grid { font-size: 0.75rem; }
+    .emp-cal-day { min-height: 56px; padding: 4px; }
+    .emp-cal-tag { font-size: 0.6rem; }
+    .emp-page-head h1 { font-size: 1.25rem; }
+}
+
+/* Punch regularization page */
+.emp-page-regularization .emp-page-hero {
+    margin-bottom: 20px;
+}
+.emp-section-grid-reg {
+    grid-template-columns: minmax(0, 1.2fr) minmax(340px, 420px);
+}
+.emp-page-stats-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 20px;
+}
+.emp-reg-stats {
+    gap: 14px;
+}
+.emp-reg-main {
+    min-width: 0;
+}
+.emp-reg-history-card {
+    padding-bottom: 8px;
+}
+.emp-reg-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding-bottom: 12px;
+}
+.emp-reg-toolbar-sub {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+.emp-reg-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 40px 24px 48px;
+    color: var(--text-muted);
+}
+.emp-reg-empty-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 14px;
+    border-radius: 50%;
+    background: #eff6ff;
+    color: #4f46e5;
+}
+.emp-reg-empty-icon svg {
+    width: 28px;
+    height: 28px;
+}
+.emp-reg-empty strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 1rem;
+    color: #0f172a;
+}
+.emp-reg-empty p {
+    margin: 0;
+    max-width: 320px;
+    font-size: 0.875rem;
+    line-height: 1.55;
+}
+.emp-reg-timeline {
+    padding: 0 20px 16px;
+}
+.emp-reg-timeline-item .emp-timeline-body time {
+    display: block;
+    margin-top: 6px;
+}
+.emp-reg-time-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0 4px;
+}
+.emp-reg-time-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #334155;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+}
+.emp-reg-time-chip svg {
+    width: 14px;
+    height: 14px;
+    color: #64748b;
+    flex-shrink: 0;
+}
+.emp-reg-note {
+    margin: 8px 0 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #475569;
+}
+.emp-request-panel-reg .emp-request-panel-header {
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+}
+.emp-reg-time-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+@media (max-width: 1024px) {
+    .emp-section-grid-reg {
+        grid-template-columns: 1fr;
+    }
+    .emp-request-panel-reg {
+        order: -1;
+    }
+}
+@media (max-width: 768px) {
+    .emp-page-stats-3 {
+        grid-template-columns: 1fr;
+    }
+    .emp-reg-time-fields {
+        grid-template-columns: 1fr;
+    }
+    .emp-reg-timeline {
+        padding: 0 16px 12px;
+    }
+}
+
+/* Shared emp feature pages (WFH, expenses, team, calendar, exit, performance) */
+.emp-reg-empty-compact {
+    padding: 28px 20px 32px;
+}
+.emp-reg-empty-compact strong {
+    font-size: 0.95rem;
+}
+.emp-exp-claim-list {
+    padding: 0 20px 16px;
+}
+.emp-exp-claim-list .emp-claim-card {
+    margin: 0;
+}
+
+/* Performance */
+.emp-section-grid-perf {
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    gap: 20px;
+}
+.emp-performance-list-card,
+.emp-performance-detail-card {
+    padding-bottom: 8px;
+}
+.emp-performance-detail-body {
+    padding: 0 20px 20px;
+}
+.emp-perf-block {
+    margin-bottom: 1.25rem;
+}
+.emp-perf-block h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+.emp-perf-block p {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #334155;
+}
+.emp-perf-manager {
+    padding: 1rem;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+}
+.emp-perf-rating {
+    margin-bottom: 0.5rem !important;
+}
+
+/* Exit */
+.emp-section-grid-exit {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+    gap: 20px;
+}
+.emp-exit-checklist {
+    margin: 0 0 1rem;
+    padding: 0 20px 0 36px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #475569;
+}
+.emp-exit-checklist li {
+    margin-bottom: 0.35rem;
+}
+.emp-exit-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 0 20px 20px;
+}
+.emp-exit-active-card {
+    border-left: 4px solid #f59e0b;
+}
+
+/* Team */
+.emp-team-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+.emp-section-grid-team {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+.emp-team-manager-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 0 20px 20px;
+}
+.emp-team-manager-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.emp-team-manager-info strong {
+    font-size: 1.05rem;
+    color: #0f172a;
+}
+.emp-team-manager-info > span {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+.emp-team-contact-link {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary, #4f46e5);
+    text-decoration: none;
+}
+.emp-team-contact-link:hover {
+    text-decoration: underline;
+}
+.emp-avatar-sm {
+    width: 36px;
+    height: 36px;
+    font-size: 0.85rem;
+}
+.emp-team-roster {
+    list-style: none;
+    margin: 0;
+    padding: 0 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.emp-team-roster-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.emp-team-roster-item strong {
+    display: block;
+    font-size: 0.9rem;
+    color: #0f172a;
+}
+.emp-team-roster-item span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Team approvals */
+.emp-approval-section {
+    margin-bottom: 1rem;
+}
+.emp-approval-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 16px 16px;
+}
+.emp-page-team-approvals .emp-approval-card {
+    margin-bottom: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+}
+.emp-approval-card-main {
+    margin-bottom: 0.5rem;
+}
+.emp-approval-meta {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.emp-approval-note-input {
+    flex: 1 1 180px;
+    min-width: 140px;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+.emp-approval-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.emp-page-team-approvals .emp-approval-form {
+    flex-direction: column;
+    align-items: stretch;
+    border-top: 1px dashed #e2e8f0;
+}
+.emp-page-team-approvals .emp-approval-actions .btn {
+    flex: 1;
+    min-width: 100px;
+}
+
+/* Team calendar */
+.emp-section-grid-cal {
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 360px);
+    gap: 20px;
+    align-items: start;
+}
+.emp-calendar-card .emp-calendar-panel {
+    padding: 0 16px 16px;
+}
+.emp-cal-legend-team {
+    padding: 0 16px 12px;
+    margin: 0;
+}
+.emp-cal-legend-holiday { background: #fecaca !important; }
+.emp-cal-legend-leave { background: #bbf7d0 !important; }
+.emp-cal-legend-today { background: #93c5fd !important; }
+.emp-calendar-aside {
+    padding-bottom: 12px;
+}
+.emp-cal-holiday-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.emp-cal-holiday-list li {
+    display: flex;
+    gap: 10px;
+    font-size: 0.875rem;
+    padding: 8px 10px;
+    background: #fef2f2;
+    border-radius: 8px;
+    border: 1px solid #fecaca;
+}
+.emp-cal-holiday-list time {
+    font-weight: 700;
+    color: #b91c1c;
+    white-space: nowrap;
+}
+.emp-card-toolbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px 12px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 1024px) {
+    .emp-section-grid-perf,
+    .emp-section-grid-exit,
+    .emp-section-grid-cal {
+        grid-template-columns: 1fr;
+    }
+    .emp-section-grid-exit .emp-request-panel {
+        order: -1;
+    }
+}
+@media (max-width: 768px) {
+    .emp-team-manager-card {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    .emp-approval-actions {
+        flex-direction: column;
+    }
+    .emp-approval-actions .btn {
+        width: 100%;
+    }
+}
 

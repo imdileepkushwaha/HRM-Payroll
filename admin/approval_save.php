@@ -102,6 +102,30 @@ if ($type === 'profile') {
     exit;
 }
 
+if ($result['ok'] && in_array($type, ['leave', 'document'], true)) {
+    require_once 'includes/settings_helper.php';
+    require_once 'includes/employee_portal_features_helper.php';
+    $settings = get_all_settings($conn);
+    $verb = $action === 'approve' ? 'approved' : 'rejected';
+    if ($type === 'leave') {
+        $ls = $conn->prepare('SELECT r.*, e.email, e.name FROM employee_leave_requests r INNER JOIN employees e ON e.emp_id = r.emp_id WHERE r.id = ?');
+        $ls->bind_param('i', $request_id);
+        $ls->execute();
+        if ($emp_row = $ls->get_result()->fetch_assoc()) {
+            notify_employee_email($settings, $emp_row['email'] ?? null, 'Leave request ' . $verb, '<p>Your leave request (' . htmlspecialchars($emp_row['leave_type']) . ') was ' . $verb . '.</p>');
+        }
+    } elseif ($type === 'document') {
+        $ds = $conn->prepare('SELECT r.*, e.email FROM employee_document_requests r INNER JOIN employees e ON e.emp_id = r.emp_id WHERE r.id = ?');
+        $ds->bind_param('i', $request_id);
+        $ds->execute();
+        if ($drow = $ds->get_result()->fetch_assoc()) {
+            require_once 'includes/employee_document_helper.php';
+            $label = employee_document_type_label($drow['doc_type'] ?? '');
+            notify_employee_email($settings, $drow['email'] ?? null, 'Document request ' . $verb, '<p>Your ' . htmlspecialchars($label) . ' request was ' . $verb . '.</p>');
+        }
+    }
+}
+
 $_SESSION['flash_message'] = $result['message'];
 $_SESSION['flash_success'] = $result['ok'];
 header('Location: approvals.php');

@@ -446,6 +446,52 @@ function ensure_database_schema($conn)
             KEY `entity_type` (`entity_type`),
             KEY `created_at` (`created_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `employee_helpdesk_tickets` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `emp_id` varchar(50) NOT NULL,
+            `branch_id` int(11) NOT NULL,
+            `category` varchar(60) NOT NULL DEFAULT 'General',
+            `subject` varchar(200) NOT NULL,
+            `body` text NOT NULL,
+            `status` varchar(20) NOT NULL DEFAULT 'open',
+            `admin_reply` text,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` datetime DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            KEY `emp_status` (`emp_id`, `status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `employee_wfh_requests` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `emp_id` varchar(50) NOT NULL,
+            `branch_id` int(11) NOT NULL,
+            `wfh_date` date NOT NULL,
+            `employee_note` text,
+            `request_status` varchar(20) NOT NULL DEFAULT 'pending',
+            `reviewed_by` varchar(50) DEFAULT NULL,
+            `reviewed_at` datetime DEFAULT NULL,
+            `review_note` text,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `emp_status` (`emp_id`, `request_status`),
+            KEY `branch_status` (`branch_id`, `request_status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+        "CREATE TABLE IF NOT EXISTS `punch_regularization_requests` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `emp_id` varchar(50) NOT NULL,
+            `branch_id` int(11) NOT NULL,
+            `punch_date` date NOT NULL,
+            `requested_in_time` time DEFAULT NULL,
+            `requested_out_time` time DEFAULT NULL,
+            `employee_note` text,
+            `request_status` varchar(20) NOT NULL DEFAULT 'pending',
+            `reviewed_by` varchar(50) DEFAULT NULL,
+            `reviewed_at` datetime DEFAULT NULL,
+            `review_note` text,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `emp_status` (`emp_id`, `request_status`),
+            KEY `branch_status` (`branch_id`, `request_status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
     ];
 
     foreach ($tables as $sql) {
@@ -522,6 +568,10 @@ function ensure_database_schema($conn)
 
     seed_admin_roles_and_permissions($conn);
     migrate_employee_department_masters($conn);
+
+    if (!column_exists($conn, 'employee_payroll_profiles', 'slip_email_enabled')) {
+        $conn->query('ALTER TABLE `employee_payroll_profiles` ADD COLUMN `slip_email_enabled` tinyint(1) NOT NULL DEFAULT 1');
+    }
 
     return $messages;
 }
@@ -912,6 +962,7 @@ function seed_default_settings($conn)
         'hr_notify_emails' => '',
         'company_email' => '',
         'careers_public_enabled' => '1',
+        'company_policies_html' => '',
     ];
 
     foreach ($defaults as $key => $value) {

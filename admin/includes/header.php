@@ -9,7 +9,7 @@ if (!empty($_SESSION['admin_logged_in'])) {
     require_once __DIR__ . '/auth_helper.php';
     sync_logged_in_admin_permissions($conn);
 }
-$people_active = in_array($current_page, ['employees.php', 'employee_view.php', 'departments.php', 'org_chart.php', 'recruitment.php', 'performance.php', 'employee_exits.php'], true);
+$people_active = in_array($current_page, ['employees.php', 'employee_view.php', 'departments.php', 'org_chart.php', 'recruitment.php', 'performance.php', 'employee_exits.php', 'helpdesk.php'], true);
 $finance_active = in_array($current_page, ['expenses.php', 'assets.php'], true);
 $calendar_active = in_array($current_page, ['holidays.php', 'weekoff_roster.php', 'team_calendar.php', 'announcements.php'], true);
 $leave_active = in_array($current_page, ['approvals.php', 'leave_history.php', 'leave_balances.php'], true);
@@ -78,6 +78,9 @@ $pending_approvals_count = count_pending_approvals_for_branch($conn, get_active_
             <?php endif; ?>
             <?php if (has_permission('exits')): ?>
             <li><a href="employee_exits.php" class="<?php echo $current_page === 'employee_exits.php' ? 'active' : ''; ?>" title="Exit & F&F"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Exit &amp; F&amp;F</span></a></li>
+            <?php endif; ?>
+            <?php if (has_permission('employees')): ?>
+            <li><a href="helpdesk.php" class="<?php echo $current_page === 'helpdesk.php' ? 'active' : ''; ?>" title="Helpdesk"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Helpdesk</span></a></li>
             <?php endif; ?>
             <?php if (has_permission('expenses') || has_permission('assets')): ?>
             <li class="sidebar-nav-label" aria-hidden="true">Finance</li>
