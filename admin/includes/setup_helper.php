@@ -26,7 +26,7 @@ function payroll_setup_render_error(int $code, string $title, string $message, a
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <a href="index.php" class="btn btn-block" style="margin-top:16px;">Back to login</a>
+            <a href="login.php" class="btn btn-block" style="margin-top:16px;">Back to login</a>
         </div>
     </div>
 </body>

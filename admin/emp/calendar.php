@@ -1,7 +1,10 @@
 <?php
 require __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/../includes/settings_helper.php';
+require_once __DIR__ . '/../includes/attendance_helper.php';
+require_once __DIR__ . '/../includes/salary_helper.php';
 require_once __DIR__ . '/../includes/hrm_helper.php';
+require_once __DIR__ . '/../includes/employee_portal_features_helper.php';
 require_once __DIR__ . '/includes/period.php';
 
 $month = (int) ($_GET['month'] ?? date('n'));

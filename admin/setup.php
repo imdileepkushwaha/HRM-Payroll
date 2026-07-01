@@ -123,7 +123,7 @@ foreach ($branch_admins as $ba) {
                 <?php endforeach; ?>
             </div>
             <div class="alert alert-success">Setup complete! You can now sign in.</div>
-            <a href="index.php" class="btn btn-block">Go to Login</a>
+            <a href="login.php" class="btn btn-block">Go to Admin Login</a>
         </div>
     </div>
 </body>

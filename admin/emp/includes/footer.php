@@ -12,7 +12,8 @@ $footer_year = (int) date('Y');
         <footer class="emp-site-footer emp-site-footer-compact">
             <div class="emp-site-footer-bottom">
                 <span>&copy; <?php echo $footer_year; ?> <?php echo htmlspecialchars($footer_company); ?>. All rights reserved.</span>
-                <a href="../index.php">Admin login</a>
+                <a href="../index.php">Portal home</a>
+                <a href="../login.php">Admin login</a>
             </div>
         </footer>
     </div>

@@ -66,7 +66,7 @@ $time_diag = payroll_setup_time_diagnostics($db_ok ? $conn : null);
             </div>
             <p class="form-hint" style="margin-top:14px;">If “Today label” does not match Windows server date, fix Windows date/time zone, then restart IIS.</p>
             <a href="setup.php" class="btn btn-block" style="margin-top:12px;">Run full setup</a>
-            <a href="index.php" class="btn btn-outline btn-block" style="margin-top:8px;">Back to login</a>
+            <a href="login.php" class="btn btn-outline btn-block" style="margin-top:8px;">Back to login</a>
         </div>
     </div>
 </body>

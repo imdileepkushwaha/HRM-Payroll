@@ -127,10 +127,16 @@ if (!empty($_SESSION['employee_logged_in'])) {
                 </div>
 
                 <footer class="emp-login-card-footer">
-                    <a href="../index.php" class="emp-login-admin-link">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        Admin login
-                    </a>
+                    <div class="emp-login-footer-links">
+                        <a href="../index.php" class="emp-login-admin-link">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                            Portal home
+                        </a>
+                        <a href="../login.php" class="emp-login-admin-link emp-login-admin-link-accent">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            Admin login
+                        </a>
+                    </div>
                 </footer>
             </div>
 

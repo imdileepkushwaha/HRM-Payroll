@@ -232,7 +232,7 @@ function render_migration_page(array $log): void
                     </div>
                 <?php endforeach; ?>
             </div>
-            <a href="../index.php" class="btn btn-block">Go to Login</a>
+            <a href="../login.php" class="btn btn-block">Go to Login</a>
         </div>
     </div>
 </body>

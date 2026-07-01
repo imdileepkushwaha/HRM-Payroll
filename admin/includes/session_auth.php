@@ -64,13 +64,13 @@ function enforce_admin_session()
     init_admin_session();
 
     if (empty($_SESSION['admin_logged_in'])) {
-        header('Location: index.php');
+        header('Location: login.php');
         exit;
     }
 
     if (is_admin_session_expired()) {
         expire_admin_session();
-        header('Location: index.php');
+        header('Location: login.php');
         exit;
     }
 

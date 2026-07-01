@@ -5,11 +5,11 @@ require_once 'includes/csrf_helper.php';
 require 'config.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: index.php');
+    header('Location: login.php');
     exit;
 }
 
-require_csrf_or_redirect('index.php');
+require_csrf_or_redirect('login.php');
 
 $username = trim($_POST['username'] ?? '');
 $password = $_POST['password'] ?? '';
@@ -20,7 +20,7 @@ if (!SHOW_BRANCH_SELECTOR || $selected_branch <= 0) {
 
 if ($username === '' || $password === '') {
     $_SESSION['login_error'] = 'Username and password are required.';
-    header('Location: index.php');
+    header('Location: login.php');
     exit;
 }
 
@@ -31,21 +31,21 @@ $result = $stmt->get_result();
 
 if ($result->num_rows !== 1) {
     $_SESSION['login_error'] = 'Invalid username or branch.';
-    header('Location: index.php');
+    header('Location: login.php');
     exit;
 }
 
 $row = $result->fetch_assoc();
 if (!password_verify($password, $row['password'])) {
     $_SESSION['login_error'] = 'Invalid password.';
-    header('Location: index.php');
+    header('Location: login.php');
     exit;
 }
 
 $user_branch = $row['branch_id'] !== null ? (int) $row['branch_id'] : null;
 if (!validate_login_branch($user_branch, $selected_branch)) {
     $_SESSION['login_error'] = 'This account is not authorized for the selected branch.';
-    header('Location: index.php');
+    header('Location: login.php');
     exit;
 }
 

@@ -8,7 +8,11 @@ require_once __DIR__ . '/../../includes/settings_helper.php';
 require_once __DIR__ . '/../../includes/face_biometric_helper.php';
 require_once __DIR__ . '/../../includes/employee_portal_features_helper.php';
 
+require_once __DIR__ . '/hero_gradient.php';
+
 $employee = require_logged_in_employee($conn);
+$current_page = basename($_SERVER['PHP_SELF']);
+$emp_portal_gradient = emp_portal_gradient_index($current_page);
 $branch_label = get_branch_label($conn, (int) $employee['branch_id']);
 $portal_company = trim(get_all_settings($conn)['company_name'] ?? '') ?: 'Payroll Company';
 $portal_prefs = get_employee_portal_prefs($conn, $employee['emp_id']);
@@ -16,7 +20,6 @@ $emp_notify_count = count_employee_portal_notifications($conn, $employee['emp_id
 $emp_is_manager = employee_is_manager($conn, $employee['emp_id']);
 $portal_logo_initial = strtoupper(substr($portal_company, 0, 1)) ?: 'P';
 $initial = strtoupper(substr($employee['name'], 0, 1));
-$current_page = basename($_SERVER['PHP_SELF']);
 $face_login_enabled = employee_face_login_enabled($conn);
 
 $emp_page_title = match ($current_page) {
@@ -57,7 +60,7 @@ $emp_page_title = match ($current_page) {
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
 </head>
-<body class="page-emp-portal">
+<body class="page-emp-portal emp-portal-g-<?php echo $emp_portal_gradient; ?>">
     <div class="emp-sidebar-backdrop" id="empSidebarBackdrop" hidden></div>
     <aside class="emp-sidebar" id="empSidebar" aria-label="Employee portal navigation">
         <div class="emp-sidebar-header">
