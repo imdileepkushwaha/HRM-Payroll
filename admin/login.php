@@ -15,7 +15,7 @@ if (!empty($_SESSION['admin_logged_in'])) {
 }
 
 $branches = get_branches($conn);
-$login_company = trim(get_all_settings($conn)['company_name'] ?? '') ?: 'Payroll Company';
+$login_company = trim(get_all_settings($conn)['company_name'] ?? '') ?: 'Teamora';
 $login_logo_initial = strtoupper(substr($login_company, 0, 1)) ?: 'P';
 ?>
 <!DOCTYPE html>

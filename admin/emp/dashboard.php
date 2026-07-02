@@ -34,7 +34,7 @@ foreach ($leave_requests as $req) {
 $dept = $employee['department'] ?: 'General';
 $designation = $employee['designation'] ?: 'Staff';
 $period_query = 'year=' . $year . '&month=' . $month;
-$portal_company = trim($settings['company_name'] ?? '') ?: 'Payroll Company';
+$portal_company = trim($settings['company_name'] ?? '') ?: 'Teamora';
 $hour = (int) date('G');
 $greeting = $hour < 12 ? 'Good morning' : ($hour < 17 ? 'Good afternoon' : 'Good evening');
 $today_label = date('l, j M Y');

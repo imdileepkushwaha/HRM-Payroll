@@ -5,7 +5,7 @@ require __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/csrf_helper.php';
 require_once __DIR__ . '/../includes/settings_helper.php';
 require_once __DIR__ . '/../includes/face_biometric_helper.php';
-$login_company = trim(get_all_settings($conn)['company_name'] ?? '') ?: 'Payroll Company';
+$login_company = trim(get_all_settings($conn)['company_name'] ?? '') ?: 'Teamora';
 $login_logo_initial = strtoupper(substr($login_company, 0, 1)) ?: 'E';
 $face_login_enabled = employee_face_login_enabled($conn);
 

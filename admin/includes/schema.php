@@ -907,7 +907,7 @@ function seed_employee_portal_passwords($conn)
 function seed_default_settings($conn)
 {
     $defaults = [
-        'company_name' => 'Payroll Company',
+        'company_name' => 'Teamora',
         'working_days_per_month' => '26',
         'smtp_host' => '',
         'smtp_port' => '587',

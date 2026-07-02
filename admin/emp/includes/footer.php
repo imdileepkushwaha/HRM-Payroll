@@ -5,7 +5,7 @@ if (!isset($conn)) {
 require_once __DIR__ . '/../../includes/settings_helper.php';
 
 $footer_settings = get_all_settings($conn);
-$footer_company = trim($footer_settings['company_name'] ?? '') ?: 'Payroll Company';
+$footer_company = trim($footer_settings['company_name'] ?? '') ?: 'Teamora';
 $footer_year = (int) date('Y');
 ?>
         </main>
